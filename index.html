@@ -9,20 +9,37 @@
   <h1>ML<sub>script</sub> online demonstration</h1>
   <div id="content">
     <textarea id="mlscript-input" class="panel" spellcheck="false">
-type List[A] = Cons[A] | Nil
+fun power(x) = case
+  0 then `1.0
+  n then x `*. power(x)(n - 1)
 
-class Cons[out A](head: A, tail: List[A])
-module Nil { fun size = 0 }
+fun assertNotZero(x) =
+  `if (x `== `0.0) then `(error) else x
+fun checkedDiv = x `=> y `=> x `/ assertNotZero(y)
 
-fun map(f, xs) = if xs is
-  Cons(h, t) then Cons(f(h), map(f, t))
-  Nil        then Nil
+fun show: Code[anything, anything] -> Str = _ => "debug"
+fun inc(dbg) =
+  x `=> let c = x `+ `1 in dbg(c); c
+inc(c => log(show(c)))
 
-let c = Cons(id, Cons(([x, y]) => [y, x], Nil))
+fun body_naive(x, y) = case
+  0 then x
+  1 then y
+  n then body_naive(y, x `+ y)(n - 1)
+fun gib_naive(n) =
+  (x, y) `=> body_naive(x, y)(n)
+let gn5 = run(gib_naive(5))
 
-let m1 = map(f => f([0, 1]), c)
+fun bind(rhs, k: forall 'g : Code['a, 'g] -> Code['b, 'c | 'g]) =
+  `let x = rhs in k(x)
 
-let m2 = map(f => f([true, false]), c)
+fun body: forall 'g : (Code[Int, 'g], Code[Int, 'g]) -> Int -> Code[Int, 'g]
+fun body(x, y) = case
+  0 then x
+  1 then y
+  n then bind of x `+ y, z => body(y, z)(n - 1)
+fun gib(n) = ((x, y) `=> body(x, y)(n))
+let g5 = run(gib(5))
 </textarea>
 <!-- let rec recursive_monster = fun x ->
   { thing = x;

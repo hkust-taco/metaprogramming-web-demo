@@ -1254,7 +1254,7 @@ class JSBackend(allowUnresolvedSymbols: Boolean) {
   
 }
 
-class JSWebBackend extends JSBackend(allowUnresolvedSymbols = true) {
+class JSWebBackend extends JSBackend(allowUnresolvedSymbols = false) {
   // Name of the array that contains execution results
   val resultsName: Str = topLevelScope declareRuntimeSymbol "results"
 
@@ -1377,8 +1377,12 @@ class JSWebBackend extends JSBackend(allowUnresolvedSymbols = true) {
               name :: Nil
             ).stmt :: Nil
         })
+    val qqPredefs =
+      SourceCode(QQHelper.prettyPrinter.replace(
+        """globalThis.run = (code) => {console.log("Quoted:\n" + code);}""",
+        """globalThis.run = (code) => code"""))
     val epilogue = resultsIdent.member("map")(JSIdent(prettyPrinterName)).`return` :: Nil
-    (JSImmEvalFn(N, Nil, R(polyfill.emit() ::: stmts ::: epilogue), Nil).toSourceCode.toLines, resultNames.toList)
+    ((qqPredefs ++ JSImmEvalFn(N, Nil, R(polyfill.emit() ::: stmts ::: epilogue), Nil).toSourceCode).toLines, resultNames.toList)
   }
 
   def apply(pgrm: Pgrm, newDefs: Bool): (Ls[Str], Ls[Str]) =

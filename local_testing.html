@@ -9,26 +9,37 @@
   <h1>MLscript demonstration</h1>
   <div id="content">
     <textarea id="mlscript-input" class="panel" spellcheck="false">
-class Add[E](lhs: E, rhs: E)
-class Lit(n: Int)
-class Neg[E](expr: E)
+fun power(x) = case
+  0 then `1.0
+  n then x `*. power(x)(n - 1)
 
-let add11 = Add(Lit(1), Lit(2))
-let add2negadd11 = Add(Lit(2), Neg(add11))
+fun assertNotZero(x) =
+  `if (x `== `0.0) then `(error) else x
+fun checkedDiv = x `=> y `=> x `/ assertNotZero(y)
 
-mixin EvalAddLit {
-  fun eval(e) =
-    if e is
-      Lit(n) then n
-      Add(l, r) then this.eval(l) + this.eval(r)
-}
-mixin EvalNeg {
-  fun eval(override Neg(d)) = 0 - this.eval(d)
-}
+fun show: Code[anything, anything] -> Str = _ => "debug"
+fun inc(dbg) =
+  x `=> let c = x `+ `1 in dbg(c); c
+inc(c => log(show(c)))
 
-module TestLang extends EvalAddLit, EvalNeg
+fun body_naive(x, y) = case
+  0 then x
+  1 then y
+  n then body_naive(y, x `+ y)(n - 1)
+fun gib_naive(n) =
+  (x, y) `=> body_naive(x, y)(n)
+let gn5 = run(gib_naive(5))
 
-let res = TestLang.eval(add2negadd11)
+fun bind(rhs, k: forall 'g : Code['a, 'g] -> Code['b, 'c | 'g]) =
+  `let x = rhs in k(x)
+
+fun body: forall 'g : (Code[Int, 'g], Code[Int, 'g]) -> Int -> Code[Int, 'g]
+fun body(x, y) = case
+  0 then x
+  1 then y
+  n then bind of x `+ y, z => body(y, z)(n - 1)
+fun gib(n) = ((x, y) `=> body(x, y)(n))
+let g5 = run(gib(5))
 </textarea>
     <div id="mlscript-output" class="panel"></div>
   </div>
@@ -36,7 +47,7 @@ let res = TestLang.eval(add2negadd11)
   <br/>
   <!-- <p>The code is available TODO.</p> -->
   <br/>
-
+<!-- 
   <h3>Tip: additional definitions from the paper – copy and paste to try them out:</h3>
   <div class="panel">
 class Mul[E](lhs: E, rhs: E)<br/>
@@ -97,7 +108,7 @@ CompareMyPoint.compare(p0, p1)<br/>
 CompareMyPoint.compare(p1, p2)<br/>
 CompareMyPoint.compare(p3, p4)<br/>
 CompareMyPoint.compare(p3, p5)<br/>
-  </div>
+  </div> -->
 
 
 </html>
