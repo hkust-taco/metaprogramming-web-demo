@@ -14,7 +14,7 @@ fun power(x) = case
   n then x `*. power(x)(n - 1)
 
 fun assertNotZero(x) =
-  `if (x `== `0.0) then `(error) else x
+  `if (x `== `0.0) then `error else x
 fun checkedDiv = x `=> y `=> x `/ assertNotZero(y)
 
 fun show: Code[anything, anything] -> Str = _ => "debug"
