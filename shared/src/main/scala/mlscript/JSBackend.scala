@@ -412,6 +412,12 @@ class JSBackend(allowUnresolvedSymbols: Boolean) {
           name -> translateTerm(value)
         }) :: Nil
       )
+    // Only parenthesize binary operators
+    // Custom operators do not need special handling since they are desugared to plain methods
+    case Bra(false, trm) => trm match { 
+      case App(Var(op), _) if JSBinary.operators.contains(op) => JSParenthesis(translateTerm(trm)) 
+      case trm => translateTerm(trm)
+    }
     case Bra(_, trm) => translateTerm(trm)
     case Tup(terms) =>
       JSArray(terms map { case (_, Fld(_, term)) => translateTerm(term) })
@@ -1373,7 +1379,7 @@ class JSWebBackend extends JSBackend(allowUnresolvedSymbols = false) {
             throw CodeGenError("Def and TypeDef are not supported in NewDef files.")
           case term: Term =>
             val res = translateTerm(term)(topLevelScope)
-            resultNames += term.toString
+            resultNames += term.show(true)
             topLevelScope.tempVars `with` JSInvoke(
               resultsIdent("push"),
               res :: Nil
