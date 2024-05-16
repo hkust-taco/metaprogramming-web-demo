@@ -40,6 +40,21 @@ fun body(x, y) = case
   n then bind of x `+ y, z => body(y, z)(n - 1)
 fun gib(n) = ((x, y) `=> body(x, y)(n))
 let g5 = run(gib(5))
+
+mut let qq0 = `0
+
+let foo =
+  mut let r = `0
+  (x `=> ((set r = x), `0)), r
+
+class Ref[A](init: A) { mut val value: A = init }
+
+x `=>
+  let v = Ref(x)
+  let _ = y `=>
+    set v.value = y
+    `0
+  v.value
 </textarea>
     <div id="mlscript-output" class="panel"></div>
   </div>
