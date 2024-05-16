@@ -49,7 +49,7 @@ let foo =
 
 class Ref[A](init: A) { mut val value: A = init }
 
-x `=>
+let bar = x `=>
   let v = Ref(x)
   let _ = y `=>
     set v.value = y
