@@ -27,6 +27,8 @@ abstract class ModeType {
   def dbgParsing: Bool
   def dbgSimplif: Bool
   def dbgUCS: Bool
+  def dbgLifting: Bool
+  def dbgDefunc: Bool
   def fullExceptionStack: Bool
   def stats: Bool
   def stdout: Bool
@@ -40,6 +42,11 @@ abstract class ModeType {
   def showRepl: Bool
   def allowEscape: Bool
   def mono: Bool
+  def useIR: Bool
+  def interpIR: Bool
+  def irVerbose: Bool
+  def lift: Bool
+  def nolift: Bool
 }
 
 class DiffTests
@@ -50,9 +57,10 @@ class DiffTests
   
   
   /**  Hook for dependent projects, like the monomorphizer. */
-  def postProcess(mode: ModeType, basePath: Ls[Str], testName: Str, unit: TypingUnit): Ls[Str] = Nil
+  def postProcess(mode: ModeType, basePath: Ls[Str], testName: Str, unit: TypingUnit, output: Str => Unit): (Ls[Str], Option[TypingUnit]) = (Nil, None)
   
   
+  @SuppressWarnings(Array("org.wartremover.warts.RedundantIsInstanceOf"))
   private val inParallel = isInstanceOf[ParallelTestExecution]
   
   import DiffTests._
@@ -151,6 +159,8 @@ class DiffTests
       dbgParsing: Bool = false,
       dbgSimplif: Bool = false,
       dbgUCS: Bool = false,
+      dbgLifting: Bool = false,
+      dbgDefunc: Bool = false,
       fullExceptionStack: Bool = false,
       stats: Bool = false,
       stdout: Bool = false,
@@ -165,7 +175,12 @@ class DiffTests
       showRepl: Bool = false,
       allowEscape: Bool = false,
       mono: Bool = false,
+      lift: Bool = false,
+      nolift: Bool = false,
       // noProvs: Bool = false,
+      useIR: Bool = false,
+      interpIR: Bool = false,
+      irVerbose: Bool = false,
     ) extends ModeType {
       def isDebugging: Bool = dbg || dbgSimplif
     }
@@ -188,6 +203,7 @@ class DiffTests
     var constrainedTypes = false
     var irregularTypes = false
     var prettyPrintQQ = false
+    var useIR = false
     
     // * This option makes some test cases pass which assume generalization should happen in arbitrary arguments
     // * but it's way too aggressive to be ON by default, as it leads to more extrusion, cycle errors, etc.
@@ -195,8 +211,11 @@ class DiffTests
     
     var newParser = basePath.headOption.contains("parser") || basePath.headOption.contains("compiler")
     
-    val backend = new JSTestBackend()
-    val host = ReplHost()
+    val backend = new JSTestBackend {
+      def oldDefs = !newDefs
+    }
+    var hostCreated = false
+    lazy val host = { hostCreated = true; ReplHost() }
     val codeGenTestHelpers = new CodeGenTestHelpers(file, output)
     
     def rec(lines: List[String], mode: Mode): Unit = lines match {
@@ -211,6 +230,8 @@ class DiffTests
           case "d" => mode.copy(dbg = true)
           case "dp" => mode.copy(dbgParsing = true)
           case "ds" => mode.copy(dbgSimplif = true)
+          case "dl" => mode.copy(dbgLifting = true)
+          case "dd" => mode.copy(dbgDefunc = true)
           case "ducs" => mode.copy(dbg = true, dbgUCS = true)
           case "s" => mode.copy(fullExceptionStack = true)
           case "v" | "verbose" => mode.copy(verbose = true)
@@ -265,6 +286,8 @@ class DiffTests
           case "r" | "showRepl" => mode.copy(showRepl = true)
           case "escape" => mode.copy(allowEscape = true)
           case "mono" => {mode.copy(mono = true)}
+          case "lift" => {mode.copy(lift = true)}
+          case "nolift" => {mode.copy(nolift = true)}
           case "exit" =>
             out.println(exitMarker)
             ls.dropWhile(_ =:= exitMarker).tails.foreach {
@@ -273,6 +296,10 @@ class DiffTests
               case l :: _ => out.println(l)
             }
             return ()
+          case "UseIR" => useIR = true; mode
+          case "useIR" => mode.copy(useIR = true)
+          case "interpIR" => mode.copy(interpIR = true)
+          case "irVerbose" => mode.copy(irVerbose = true)
           case _ =>
             failures += allLines.size - lines.size
             output("/!\\ Unrecognized option " + line)
@@ -393,13 +420,13 @@ class DiffTests
             if (!mode.fixme) {
               if (!allowTypeErrors
                   && !mode.expectTypeErrors && diag.isInstanceOf[ErrorReport] && diag.source =:= Diagnostic.Typing)
-                failures += globalLineNum
+                { output("TEST CASE FAILURE: There was an unexpected type error"); failures += globalLineNum }
               if (!allowParseErrors
                   && !mode.expectParseErrors && diag.isInstanceOf[ErrorReport] && (diag.source =:= Diagnostic.Lexing || diag.source =:= Diagnostic.Parsing))
-                failures += globalLineNum
+                { output("TEST CASE FAILURE: There was an unexpected parse error"); failures += globalLineNum }
               if (!allowTypeErrors && !allowParseErrors
                   && !mode.expectWarnings && diag.isInstanceOf[WarningReport])
-                failures += globalLineNum
+                { output("TEST CASE FAILURE: There was an unexpected warning"); failures += globalLineNum }
             }
             
             ()
@@ -407,6 +434,8 @@ class DiffTests
         }
         
         val raise: Raise = d => report(d :: Nil)
+        
+        val legacyParser = file.ext =:= "fun"
         
         // try to parse block of text into mlscript ast
         val ans = try {
@@ -426,21 +455,30 @@ class DiffTests
             val res = p.parseAll(p.typingUnit)
             
             if (parseOnly)
-              output("Parsed: " + res.showDbg)
+              output(s"Parsed: ${res.showDbg}")
             
             if (mode.showParse)
-              output("AST: " + mlscript.codegen.Helpers.inspect(res))
+              output(s"AST: $res")
             
-            postProcess(mode, basePath, testName, res).foreach(output)
+            val newMode = if (useIR) { mode.copy(useIR = true) } else mode
+            val (postLines, nuRes) = postProcess(newMode, basePath, testName, res, output)
+            postLines.foreach(output)  
             
             if (parseOnly)
               Success(Pgrm(Nil), 0)
+            else if (mode.mono || mode.lift) {
+              import Message._
+              Success(Pgrm(nuRes.getOrElse({
+                raise(ErrorReport(msg"Post-process failed to produce AST." -> None :: Nil, true, Diagnostic.Compilation))
+                TypingUnit(Nil)
+              }).entities), 0)
+            }
             else
               Success(Pgrm(res.entities), 0)
             
           }
           else parse(processedBlockStr, p =>
-            if (file.ext =:= "fun") new Parser(Origin(testName, globalStartLineNum, fph)).pgrm(p)
+            if (legacyParser) new Parser(Origin(testName, globalStartLineNum, fph)).pgrm(p)
             else new MLParser(Origin(testName, globalStartLineNum, fph)).pgrm(p),
             verboseFailures = true
           )
@@ -450,15 +488,15 @@ class DiffTests
             val (lineNum, lineStr, col) = fph.getLineColAt(index)
             val globalLineNum = (allLines.size - lines.size) + lineNum
             if (!mode.expectParseErrors && !mode.fixme)
-              failures += globalLineNum
+              { output("TEST CASE FAILURE: There was an unexpected parse error"); failures += globalLineNum }
             output("/!\\ Parse error: " + extra.trace().msg +
               s" at l.$globalLineNum:$col: $lineStr")
             
           // successfully parsed block into a valid syntactically valid program
           case Success(p, index) =>
-            if (mode.expectParseErrors && !newParser)
-              failures += blockLineNum
-            if (mode.showParse || mode.dbgParsing) output("Parsed: " + p)
+            if (mode.expectParseErrors && !newParser && !legacyParser)
+              { output("TEST CASE FAILURE: There was an unexpected parse success"); failures += blockLineNum }
+            if (mode.showParse || mode.dbgParsing) output("Parsed: " + p.showDbg)
             // if (mode.isDebugging) typer.resetState()
             if (mode.stats) typer.resetStats()
             typer.dbg = mode.dbg
@@ -574,39 +612,11 @@ class DiffTests
               val exp = typer.expandType(sim)(ctx)
               
               val expStr =
-                exp.showIn(ShowCtx.mk(exp :: Nil, newDefs)
-                    // .copy(newDefs = true) // TODO later
-                  , 0)
+                exp.showIn(0)(ShowCtx.mk(exp :: Nil, newDefs))// .copy(newDefs = true) // TODO later
               
               output(expStr.stripSuffix("\n"))
               
-              // // val exp = getType(typer.PolymorphicType(0, res_ty))
-              // // output(s"Typed: ${exp}")
-              // tpd.result.foreach { res_ty =>
-              //   val exp = getType(typer.PolymorphicType(0, res_ty))
-              //   output(s"Typed: ${exp.show}")
-              // }
-              // // */
-              
-              /* 
-              import typer._
-              
-              val mod = NuTypeDef(Nms, TypeName("ws"), Nil, Tup(Nil), Nil, TypingUnit(p.tops))
-              val info = new LazyTypeInfo(ctx.lvl, mod)(ctx, Map.empty)
-              // val modTpe = DeclType(ctx.lvl, info)
-              info.force()(raise)
-               */
-              
-              // val tpd = info
-              
-              
-              // val exp = typer.expandType(modTpe)(ctx)
-              // FirstClassDefn()
-              
-              
-              // (Nil, Nil, N)
               (Nil, Nil, S(p.tops.collect {
-                // case LetS(isRec, pat, bod) => ("res", Nil, Nil, false)
                 case NuFunDef(isLet, nme, snme, tparams, bod) =>
                   (nme.name + " ", nme.name :: Nil, Nil, false, isLet.isEmpty)
                 case t: Term => ("res ", "res" :: Nil, Nil, false, false)
@@ -618,17 +628,14 @@ class DiffTests
               report(diags)
               
               if (mode.showParse) {
-                typeDefs.foreach(td => output("Desugared: " + td))
+                typeDefs.foreach(td => output("Desugared: " + td.showDbg))
                 stmts.foreach { s =>
-                  output("Desugared: " + s)
-                  output("AST: " + mlscript.codegen.Helpers.inspect(s))
+                  output("Desugared: " + s.showDbg)
+                  output(s"AST: $s")
                 }
               }
               
-              typer.ctx = 
-                // if (newParser) typer.typeTypingUnit(tu)
-                // else 
-                typer.processTypeDefs(typeDefs)(ctx, raise)
+              typer.ctx = typer.processTypeDefs(typeDefs)(ctx, raise)
               
               (typeDefs, stmts, N)
             }
@@ -768,7 +775,7 @@ class DiffTests
                   declared += nme.name -> ty_sch
                   val exp = getType(ty_sch, N)
                   if (mode.generateTsDeclarations) tsTypegenCodeBuilder.addTypeGenTermDefinition(exp, Some(nme.name))
-                  S(nme.name -> (s"$nme: ${exp.show(newDefs)}" :: Nil))
+                  S(nme.name -> (s"${nme.name}: ${exp.show(newDefs)}" :: Nil))
                   
                 // statement is defined and has a body/definition
                 case d @ Def(isrec, nme, L(rhs), isByname) =>
@@ -783,7 +790,7 @@ class DiffTests
                     case N =>
                       ctx += nme.name -> typer.VarSymbol(ty_sch, nme)
                       if (mode.generateTsDeclarations) tsTypegenCodeBuilder.addTypeGenTermDefinition(exp, Some(nme.name))
-                      s"$nme: ${exp.show(newDefs)}" :: Nil
+                      s"${nme.name}: ${exp.show(newDefs)}" :: Nil
                       
                     // statement has a body and a declared type
                     // both are used to compute a subsumption (What is this??)
@@ -795,7 +802,7 @@ class DiffTests
                       typer.subsume(ty_sch, sign)(ctx, raiseToBuffer, typer.TypeProvenance(d.toLoc, "def definition"))
                       if (mode.generateTsDeclarations) tsTypegenCodeBuilder.addTypeGenTermDefinition(exp, Some(nme.name))
                       typeBeforeDiags = true
-                      exp.show(newDefs) :: s"  <:  $nme:" :: sign_exp.show(newDefs) :: Nil
+                      exp.show(newDefs) :: s"  <:  ${nme.name}:" :: sign_exp.show(newDefs) :: Nil
                   }))
                 case desug: DesugaredStatement =>
                   typer.dbg = mode.dbg
@@ -937,13 +944,13 @@ class DiffTests
                     if (!mode.expectTypeErrors && !mode.fixme) {
                       // We don't expect code generation errors and it is.
                       if (!mode.expectCodeGenErrors && isSyntaxError)
-                        failures += blockLineNum
+                        { output("TEST CASE FAILURE: There was an unexpected codegen error"); failures += blockLineNum }
                       // We don't expect runtime errors and it's a runtime error.
                       if (!mode.expectRuntimeErrors && !allowRuntimeErrors && !isSyntaxError)
-                        failures += blockLineNum
+                        { output("TEST CASE FAILURE: There was an unexpected runtime error"); failures += blockLineNum }
                     }
                     if (isSyntaxError) {
-                      // If there is syntax error in the generated code,
+                      // If there is a syntax error in the generated code,
                       // it should be a code generation error.
                       output("Syntax error:")
                       totalCodeGenErrors += 1
@@ -1031,15 +1038,15 @@ class DiffTests
             }
             
             if (mode.expectParseErrors && totalParseErrors =:= 0)
-              failures += blockLineNum
+              { output("TEST CASE FAILURE: There was an unexpected lack of parse error"); failures += blockLineNum }
             if (mode.expectTypeErrors && totalTypeErrors =:= 0)
-              failures += blockLineNum
+              { output("TEST CASE FAILURE: There was an unexpected lack of type error"); failures += blockLineNum }
             if (mode.expectWarnings && totalWarnings =:= 0)
-              failures += blockLineNum
+              { output("TEST CASE FAILURE: There was an unexpected lack of warning"); failures += blockLineNum }
             if (mode.expectCodeGenErrors && totalCodeGenErrors =:= 0)
-              failures += blockLineNum
+              { output("TEST CASE FAILURE: There was an unexpected lack of codegen error"); failures += blockLineNum }
             if (mode.expectRuntimeErrors && totalRuntimeErrors =:= 0)
-              failures += blockLineNum
+              { output("TEST CASE FAILURE: There was an unexpected lack of runtime error"); failures += blockLineNum }
         } catch {
           case oh_noes: ThreadDeath => throw oh_noes
           case err: Throwable =>
@@ -1062,7 +1069,7 @@ class DiffTests
 
     try rec(allLines, defaultMode) finally {
       out.close()
-      host.terminate()
+      if (hostCreated) host.terminate()
     }
     val testFailed = failures.nonEmpty || unmergedChanges.nonEmpty
     val result = strw.toString
@@ -1070,8 +1077,8 @@ class DiffTests
     val timeStr = (((endTime - beginTime) / 1000 / 100).toDouble / 10.0).toString
     val testColor = if (testFailed) Console.RED else Console.GREEN
     
-    val resStr = s"${" " * (35 - testStr.size)}${testColor}${
-      " " * (6 - timeStr.size)}$timeStr  ms${Console.RESET}"
+    val resStr = s"${" " * (35 - testStr.length)}${testColor}${
+      " " * (6 - timeStr.length)}$timeStr  ms${Console.RESET}"
     
     if (inParallel) println(s"${Console.CYAN}Processed${Console.RESET}  $testStr$resStr")
     else println(resStr)

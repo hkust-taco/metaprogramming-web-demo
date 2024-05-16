@@ -44,7 +44,7 @@ run(code"(x => x + 1)(2)")
 //│       undefined
 
 
-run(code"x => ${x}")
+run(code"x => x")
 //│ forall 'a. 'a -> 'a
 //│ res
 //│     = Quoted:
@@ -62,13 +62,14 @@ run(code"let x = 42 in x + 0")
 //│         in (x_4 + 0)
 //│       undefined
 
-
+:e
 run(code"code"114"")
-//│ Code[114, nothing]
-//│ res
-//│     = Quoted:
-//│       code"114"
-//│       undefined
+//│ ╔══[ERROR] Nested quotation is not allowed.
+//│ ║  l.66: 	run(code"code"114"")
+//│ ╙──      	         ^^^^^^^^^
+//│ error
+//│ Code generation encountered an error:
+//│   nested quotation is not allowed.
 
 
 declare module Math {
@@ -79,7 +80,7 @@ fun power'(x, n) =
   if (n == 0) then Const(1)
   else if (even(n)) then code"let t = ${power'(x, Math.floor(n / 2))} in t * t"
   else code"${x} * ${power'(x, n - 1)}"
-run(code"x => ${power'(x, 10)}")
+run(code"x => ${power'(code"x", 10)}")
 //│ declare module Math {
 //│   fun floor: (x: Num) -> Int
 //│ }

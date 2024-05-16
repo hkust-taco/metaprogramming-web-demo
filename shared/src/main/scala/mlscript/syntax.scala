@@ -82,15 +82,19 @@ final case class Subs(arr: Term, idx: Term)                          extends Ter
 final case class Assign(lhs: Term, rhs: Term)                        extends Term
 final case class Splc(fields: Ls[Either[Term, Fld]])                 extends Term
 final case class New(head: Opt[(NamedType, Term)], body: TypingUnit) extends Term // `new C(...)` or `new C(){...}` or `new{...}`
+final case class NuNew(cls: Term) extends Term
 final case class If(body: IfBody, els: Opt[Term])                    extends Term
 final case class TyApp(lhs: Term, targs: Ls[Type])                   extends Term
 final case class Where(body: Term, where: Ls[Statement])             extends Term
 final case class Forall(params: Ls[TypeVar], body: Term)             extends Term
-final case class Inst(body: Term)                                    extends Term
+final case class Inst(body: Term)                                    extends Term // Explicit instantiation of polymohic term
 final case class Super()                                             extends Term
 final case class Eqn(lhs: Var, rhs: Term)                            extends Term // equations such as x = y, notably used in constructors; TODO: make lhs a Term
 final case class Quoted(body: Term)                                  extends Term 
 final case class Unquoted(body: Term)                                extends Term 
+final case class Rft(base: Term, decls: TypingUnit)                  extends Term
+final case class While(cond: Term, body: Term)                       extends Term
+final case class Ann(ann: Term, receiver: Term)                      extends Term
 
 final case class AdtMatchWith(cond: Term, arms: Ls[AdtMatchPat])     extends Term
 final case class AdtMatchPat(pat: Term, rhs: Term)                   extends AdtMatchPatImpl
@@ -104,7 +108,7 @@ final case class IfOpsApp(lhs: Term, opsRhss: Ls[Var -> IfBody]) extends IfBody
 final case class IfBlock(lines: Ls[IfBody \/ Statement]) extends IfBody
 // final case class IfApp(fun: Term, opsRhss: Ls[Var -> IfBody]) extends IfBody
 
-final case class FldFlags(mut: Bool, spec: Bool, genGetter: Bool)
+final case class FldFlags(mut: Bool, spec: Bool, genGetter: Bool) extends FldFlagsImpl // TODO make it a Located and use in diagnostics
 final case class Fld(flags: FldFlags, value: Term) extends FldImpl
 
 object FldFlags { val empty: FldFlags = FldFlags(false, false, false) }
@@ -158,6 +162,7 @@ final case class WithExtension(base: Type, rcd: Record)  extends Type
 final case class Splice(fields: Ls[Either[Type, Field]]) extends Type
 final case class Constrained(base: TypeLike, tvBounds: Ls[TypeVar -> Bounds], where: Ls[Bounds]) extends Type
 // final case class FirstClassDefn(defn: NuTypeDef)         extends Type // TODO
+// final case class Refinement(base: Type, decls: TypingUnit) extends Type // TODO
 
 final case class Field(in: Opt[Type], out: Type)         extends FieldImpl
 
@@ -184,7 +189,7 @@ final case class PolyType(targs: Ls[TypeName \/ TypeVar], body: Type) extends Ty
 
 // New Definitions AST
 
-final case class TypingUnit(entities: Ls[Statement]) extends TypingUnitImpl
+final case class TypingUnit(rawEntities: Ls[Statement]) extends TypingUnitImpl
 // final case class TypingUnit(entities: Ls[Statement]) extends TypeLike with PgrmOrTypingUnit with TypingUnitImpl
 
 final case class Signature(members: Ls[NuDecl], result: Opt[Type]) extends TypeLike with SignatureImpl
@@ -204,13 +209,13 @@ final case class NuTypeDef(
   superAnnot: Opt[Type],
   thisAnnot: Opt[Type],
   body: TypingUnit
-)(val declareLoc: Opt[Loc], val abstractLoc: Opt[Loc])
+)(val declareLoc: Opt[Loc], val abstractLoc: Opt[Loc], val annotations: Ls[Term])
   extends NuDecl with Statement with Outer {
     def isPlainJSClass: Bool = params.isEmpty
   }
 
 final case class NuFunDef(
-  isLetRec: Opt[Bool], // None means it's a `fun`, which is always recursive; Some means it's a `let`
+  isLetRec: Opt[Bool], // None means it's a `fun`, which is always recursive; Some means it's a `let`/`let rec` or `val`
   nme: Var,
   symbolicNme: Opt[Var],
   tparams: Ls[TypeName],
@@ -218,16 +223,27 @@ final case class NuFunDef(
 )(
   val declareLoc: Opt[Loc],
   val virtualLoc: Opt[Loc], // Some(Loc) means that the function is modified by keyword `virtual`
+  val mutLoc: Opt[Loc],
   val signature: Opt[NuFunDef],
   val outer: Opt[Outer],
-  val genField: Bool
+  val genField: Bool, // true means it's a `val`; false means it's a `let`
+  val annotations: Ls[Term],
 ) extends NuDecl with DesugaredStatement {
   val body: Located = rhs.fold(identity, identity)
   def kind: DeclKind = Val
   val abstractLoc: Opt[Loc] = None
-
+  
+  def isLetOrLetRec: Bool = isLetRec.isDefined && !genField
+  
   // If the member has no implementation, it is virtual automatically
   def isVirtual: Bool = virtualLoc.nonEmpty || rhs.isRight
+  
+  def isMut: Bool = mutLoc.nonEmpty
+  
+  def isGeneralized: Bool = isLetRec.isEmpty || (rhs match {
+    case Left(value) => value.isGeneralizableLam
+    case Right(ty) => false
+  })
 }
 
 final case class Constructor(params: Tup, body: Blk) extends DesugaredStatement with ConstructorImpl // constructor(...) { ... }

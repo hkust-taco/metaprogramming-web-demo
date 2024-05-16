@@ -2,7 +2,7 @@
 :NoJS
 
 
-:e // TODO support unbound free vars
+:e
 let c = code"x"
 //│ ╔══[ERROR] identifier not found: x
 //│ ║  l.6: 	let c = code"x"
@@ -54,18 +54,20 @@ run(res)
 //│ 3
 
 // Tup, Subs
-let tup = code"let x = 1 in let y = 2 in [x, y]._1"
-//│ let tup: Code[1, nothing]
+let tup = code"let x = 1 in let y = 2 in [x, y].1"
+//│ let tup: Code[2, nothing]
 
 run(tup)
-//│ 1
+//│ 2
 
 // Quasiquote 
+:e
 let code_in_code = code"let x = code"1" in x"
-//│ let code_in_code: Code[Code[1, nothing], nothing]
+//│ ╔══[ERROR] Nested quotation is not allowed.
+//│ ║  l.65: 	let code_in_code = code"let x = code"1" in x"
+//│ ╙──      	                                ^^^^^^^
+//│ let code_in_code: Code[error, nothing]
 
-run(code_in_code)
-//│ Code[1, nothing]
 
 // Unquoted - Const function
 let unquoted = code"let x = 3 in ${Const(10)} * x"
@@ -73,8 +75,11 @@ let unquoted = code"let x = 3 in ${Const(10)} * x"
 run(unquoted)
 //│ Int
 
-// No obvious test for DecLit 
-// No obvious test for UnitLit
+code"0.5 *. 2"
+//│ Code[Num, nothing]
+
+code"[(), null]"
+//│ Code[[(), null], nothing]
 
 let str_lit = code""" "hello" """
 //│ let str_lit: Code["hello", nothing]
@@ -91,20 +96,19 @@ let code_nested = code"let a = 1 in let b = 2 in ${code"a + b"}"
 run(code_nested)
 //│ Int
 
-// TODO support unbound free vars
+// We don't support non-lexically-bound free variables
 :e
 let y = code"x"
 code"let id = x => ${y} in id(true)"
 //│ ╔══[ERROR] identifier not found: x
-//│ ║  l.96: 	let y = code"x"
-//│ ╙──      	             ^
+//│ ║  l.101: 	let y = code"x"
+//│ ╙──       	             ^
 //│ let y: Code[error, nothing]
 //│ Code[error, nothing]
 
 run(res)
 //│ 3
 
-// Hygiene
 let y = 1
 let free_y = code"y"
 //│ let y: 1
@@ -128,8 +132,6 @@ run(res)(100)
 let f = 0
 //│ let f: 0
 
-// Note the renaming of `f`, which means it won't be picked up by the QQ
-:js
 fun f(x) = x
 //│ fun f: forall 'a. 'a -> 'a
 
@@ -146,16 +148,12 @@ class Foo(n: Int)
 //│ class Foo(n: Int)
 
 
-:e
 let res = code"Foo(1)"
-//│ ╔══[ERROR] identifier not found: Foo
-//│ ║  l.150: 	let res = code"Foo(1)"
-//│ ╙──       	               ^^^
-//│ let res: Code[error, nothing]
+//│ let res: Code[Foo, nothing]
 
 
 run(res)
-//│ error
+//│ Foo
 
 let codeA = code"let y = 2 in y"
 let codeB = code"y + y"
@@ -163,7 +161,7 @@ let codeB = code"y + y"
 //│ let codeB: Code[Int, nothing]
 
 
-let both = code"discard(${codeA}); ${codeB}"
+let both = code"${codeA}, ${codeB}"
 //│ let both: Code[Int, nothing]
 
 :e
@@ -171,7 +169,7 @@ let a = code"let x = 0 in x"
 let b = code"x"
 let c = code"${a} + ${b}"
 //│ ╔══[ERROR] identifier not found: x
-//│ ║  l.171: 	let b = code"x"
+//│ ║  l.169: 	let b = code"x"
 //│ ╙──       	             ^
 //│ let a: Code[0, nothing]
 //│ let b: Code[error, nothing]
@@ -193,3 +191,43 @@ code"x => ${ code"x" }"
 
 run(code"x => x + ${x}")(1)
 //│ Int
+
+run(code"x => x + ${code"x"}")(1)
+//│ Int
+
+val v: Var[Int, nothing]
+//│ val v: Var[Int, nothing]
+
+run(v)
+//│ Int
+
+val v: Var[Int, anything]
+//│ val v: Var[Int, anything]
+
+:e
+run(v)
+//│ ╔══[ERROR] Type mismatch in application:
+//│ ║  l.208: 	run(v)
+//│ ║         	^^^^^^
+//│ ╙── expression of type `anything` does not match type `nothing`
+//│ Int | error
+
+
+let x = code"1"
+code"$x + 1"
+//│ let x: Code[1, nothing]
+//│ Code[Int, nothing]
+
+
+:pe
+code"$"
+//│ ╔══[LEXICAL ERROR] unexpected character '$'
+//│ ║  l.223: 	code"$"
+//│ ╙──       	     ^
+//│ ╔══[PARSE ERROR] Unexpected error in expression position
+//│ ║  l.223: 	code"$"
+//│ ╙──       	     ^
+//│ ╔══[PARSE ERROR] Unexpected end of quasiquote section; an expression was expected here
+//│ ║  l.223: 	code"$"
+//│ ╙──       	      ^
+//│ Code[(), nothing]

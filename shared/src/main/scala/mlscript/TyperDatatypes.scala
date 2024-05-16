@@ -54,7 +54,10 @@ abstract class TyperDatatypes extends TyperHelpers { Typer: Typer =>
   /** Initialized lazy type information, to be computed soon. */
   class DelayedTypeInfo(val decl: NuDecl, val outerVars: Map[Str, SimpleType])
           (implicit val ctx: Ctx, val raise: Raise) extends LazyTypeInfo with DelayedTypeInfoImpl
-  
+  object DelayedTypeInfo {
+    def unapply(dti: DelayedTypeInfo): S[NuDecl] =
+      S(dti.decl)
+  }
   
   /** A type with universally quantified type variables
     * (by convention, those variables of level greater than `level` are considered quantified). */
@@ -166,6 +169,27 @@ abstract class TyperDatatypes extends TyperHelpers { Typer: Typer =>
   
   sealed abstract class BaseTypeOrTag extends SimpleType
   sealed abstract class BaseType extends BaseTypeOrTag {
+    def compareEquiv(that: BaseType): Int = (this, that) match {
+      case (a: TypeTag, b: TypeTag) => a.compare(b)
+      case (a: TypeTag, _) => -1
+      case (_, b: TypeTag) => 1
+      case (_: FunctionType, _: FunctionType) => 0
+      case (_: FunctionType, _) => -1
+      case (_, _: FunctionType) => 1
+      case (_: ArrayType, _: ArrayType) => 0
+      case (_: ArrayType, _) => -1
+      case (_, _: ArrayType) => 1
+      case (_: TupleType, _: TupleType) => 0
+      case (_: TupleType, _) => -1
+      case (_, _: TupleType) => 1
+      case (_: Without, _: Without) => 0
+      case (_: Without, _) => -1
+      case (_, _: Without) => 1
+      case (_: Overload, _: Overload) => 0
+      case (_: Overload, _) => -1
+      case (_, _: Overload) => 1
+      case (_: SpliceType, _: SpliceType) => 0
+    }
     def toRecord: RecordType = RecordType.empty
     protected def freshenAboveImpl(lim: Int, rigidify: Bool)(implicit ctx: Ctx, freshened: MutMap[TV, ST]): BaseType
     override def freshenAbove(lim: Int, rigidify: Bool)(implicit ctx: Ctx, freshened: MutMap[TV, ST]): BaseType =
@@ -240,7 +264,7 @@ abstract class TyperDatatypes extends TyperHelpers { Typer: Typer =>
       RecordType(fields.filterNot(f => shadowing(f._1)) ++ fs)(prov)
     }
     def sorted: RecordType = RecordType(fields.sortBy(_._1))(prov)
-    override def toString = s"{${fields.map(f => s"${f._1}: ${f._2}").mkString(", ")}}"
+    override def toString = s"{${fields.map(f => s"${f._1.name}: ${f._2}").mkString(", ")}}"
   }
   object RecordType {
     def empty: RecordType = RecordType(Nil)(noProv)
@@ -269,7 +293,7 @@ abstract class TyperDatatypes extends TyperHelpers { Typer: Typer =>
     lazy val toArray: ArrayType = ArrayType(inner)(prov)  // upcast to array
     override lazy val toRecord: RecordType =
       RecordType(
-        fields.zipWithIndex.map { case ((_, t), i) => (Var("_"+(i+1)), t) }
+        fields.zipWithIndex.map { case ((_, t), i) => (Var(i.toString), t) }
         // Note: In line with TypeScript, tuple field names are pure type system fictions,
         //    with no runtime existence. Therefore, they should not be included in the record type
         //    corresponding to this tuple type.

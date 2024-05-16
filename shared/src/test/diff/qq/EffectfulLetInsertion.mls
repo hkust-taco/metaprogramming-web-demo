@@ -35,7 +35,7 @@ scope of outer =>
 let a = outer.bind(code"123")
 code"x => ${
   scope of inner =>
-  let b = outer.bind(code"${a} + ${x}")
+  let b = outer.bind(code"${a} + ${code"x"}")
   code"${b} * 2"
 }"
 //│ Code[Int -> Int, ??x & ~??in]
@@ -45,7 +45,7 @@ scope of outer =>
 let a = outer.bind(code"123")
 code"x => ${
   scope of inner =>
-  let b = inner.bind(code"${a} + ${x}")
+  let b = inner.bind(code"${a} + ${code"x"}")
   code"${b} * 2"
 }"
 //│ Code[Int -> Int, nothing]
@@ -58,7 +58,7 @@ scope <| outer =>
 let a = outer.bind(code"123")
 code"x => ${
   scope <| inner =>
-  let b = inner.bind(code"${a} + ${x}")
+  let b = inner.bind(code"${a} + ${code"x"}")
   code"${b} * 2"
 }"
 //│ Code[Int -> Int, nothing]
@@ -85,10 +85,10 @@ class Example() extends Scope {
   let c1 = this.bind("b", code"${c0} + 1")
   val result = code"${c1} * ${c1}"
 }
-//│ ╔══[ERROR] Indirectly-recursive member should have type annotation
+//│ ╔══[ERROR] Indirectly-recursive member should have a type signature
 //│ ║  l.84: 	  let c0 = this.bind("a", code"123")
 //│ ╙──      	               ^^^^^
-//│ ╔══[ERROR] Indirectly-recursive member should have type annotation
+//│ ╔══[ERROR] Indirectly-recursive member should have a type signature
 //│ ║  l.85: 	  let c1 = this.bind("b", code"${c0} + 1")
 //│ ╙──      	               ^^^^^
 //│ ╔══[ERROR] Cannot access `this` while initializing field c0

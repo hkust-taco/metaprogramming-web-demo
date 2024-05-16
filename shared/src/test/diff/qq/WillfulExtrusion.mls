@@ -3,8 +3,8 @@
 
 
 fun foo(dbg) =
-  code"x => ${let c = code"x + 1" in dbg(c); c}"
-//│ fun foo: (Code[Int, ??x] -> ()) -> Code[Int -> Int, nothing]
+  code"x => ${let c = code"x + 1" in dbg(c), c}"
+//│ fun foo: (Code[Int, ??x] -> anything) -> Code[Int -> Int, nothing]
 
 foo(log)
 //│ Code[Int -> Int, nothing]

@@ -1,7 +1,7 @@
 package mlscript
 
 import scala.collection.mutable
-import scala.collection.mutable.{Map => MutMap, Set => MutSet}
+import scala.collection.mutable.{Map => MutMap, Set => MutSet, SortedMap => MutSortMap, LinkedHashMap, LinkedHashSet, Buffer}
 import scala.collection.immutable.{SortedSet, SortedMap}
 import Set.{empty => semp}
 import scala.util.chaining._
@@ -62,12 +62,10 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       env: MutMap[Str, TypeInfo],
       mthEnv: MutMap[(Str, Str) \/ (Opt[Str], Str), MethodType],
       lvl: Int,
-      qenv: MutMap[Str, SkolemTag], // * SkolemTag for variables in quasiquotes
-      fvars: MutSet[ST], // * Free variables
-      quotedLvl: Int, // * Level of quasiquotes
-      isUnquoted: Bool,
+      quoteSkolemEnv: MutMap[Str, SkolemTag], // * SkolemTag for variables in quasiquotes
+      freeVarsInCurrentQuote: LinkedHashSet[ST], // * Free variables appearing in the current quote scope
+      inQuote: Bool, // * Is in quasiquote
       inPattern: Bool,
-      funDefs: MutMap[Str, DelayedTypeInfo],
       tyDefs: Map[Str, TypeDef],
       tyDefs2: MutMap[Str, DelayedTypeInfo],
       inRecursiveDef: Opt[Var], // TODO rm
@@ -75,45 +73,43 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
   ) {
     def +=(b: Str -> TypeInfo): Unit = {
       env += b
-      if (quotedLvl > 0 && !isUnquoted) {
+      if (inQuote) {
         val tag = SkolemTag(freshVar(NoProv, N, nameHint = S(b._1))(lvl))(NoProv)
         println(s"Create skolem tag $tag for ${b._2} in quasiquote.")
-        qenv += b._1 -> tag
+        quoteSkolemEnv += b._1 -> tag
       }
     }
     def ++=(bs: IterableOnce[Str -> TypeInfo]): Unit = bs.iterator.foreach(+=)
-    def get(name: Str, qlvl: Int = 0): Opt[TypeInfo] =
-      if (qlvl === quotedLvl) env.get(name) orElse parent.dlof(_.get(name, qlvl))(N)
-      else parent.dlof(_.get(name, qlvl))(N)
-    def getDecl(name: Str): Opt[NuDecl] = funDefs.get(name).map(_.decl) orElse parent.dlof(_.getDecl(name))(N)
-    def getTopLevel(name: Str): Opt[TypeInfo] = (get(name), getDecl(name)) match {
-      case (ty, S(fd: NuFunDef)) if (fd.outer.isEmpty) => ty
-      case _ => N
-    }
-    def qget(name: Str, qlvl: Int = quotedLvl): Opt[SkolemTag] =
-      if (qlvl === quotedLvl) qenv.get(name) orElse parent.dlof(_.qget(name, qlvl))(N)
-      else parent.dlof(_.qget(name, qlvl))(N)
-    def getCtxTy: ST = fvars.foldLeft[ST](BotType)((res, ty) => res | ty)
-    def wrapCode: Ls[(Str, TypeInfo)] = qenv.flatMap {
-      case (name, tag) =>
-        get(name, quotedLvl) match {
-          case S(VarSymbol(ty, _)) =>
-            name -> VarSymbol(TypeRef(TypeName("Code"), ty :: tag :: Nil)(noProv), Var(name)) :: Nil
-          case S(_: AbstractConstructor) | S(_: LazyTypeInfo) => die // * Abstract ctors and type defs are not allowed
-          case N => Nil // * In the same quasiquote but not the same scope
+    def get(name: Str): Opt[TypeInfo] = {
+      /**
+        * 1. If we try to get a quoted variable from a quoted context, or get a non-quoted variable from a non-quoted context,
+        * we can directly search the `env`;
+        * 2. If we try to get a quoted variable from a non-quoted context, we need to wrap it with its contextual Skolem;
+        * 3. Otherwise, it is a top-level defined symbol, or the context has a quoted parent.
+        */
+      def rec(ctx: Ctx): Opt[TypeInfo] = {
+        if (inQuote === ctx.inQuote) ctx.env.get(name) orElse ctx.parent.flatMap(rec(_))
+        else if (!inQuote) ctx.env.get(name) match {
+          case S(VarSymbol(ty, _)) => ctx.getQuoteSkolem(name) match {
+            case S(tag) => S(VarSymbol(TypeRef(TypeName("Var"), ty :: tag :: Nil)(noProv), Var(name)))
+            case _ => ctx.parent.flatMap(rec(_))
+          }
+          case _ => ctx.parent.flatMap(rec(_))
         }
-    }.toList
-    def unwrap[T](names: Ls[Str], f: () => T): T = { // * Revert ctx modification temporarily
-      val cache: MutMap[Str, TypeInfo] = MutMap.empty
-      names.foreach(name => {
-        cache += name -> env.getOrElse(name, die)
-        env -= name
-      })
-      val res = f()
-      cache.foreach(env += _)
-      res
+        else ctx.parent match {
+          case S(parent) => rec(parent)
+          case _ => ctx.env.get(name)
+        }
+      }
+      rec(this)
     }
-    def traceFV(fv: ST): Unit = fvars += fv
+    def getQuoteSkolem(name: Str): Opt[SkolemTag] = quoteSkolemEnv.get(name) orElse parent.dlof(_.getQuoteSkolem(name))(N)
+    def getAllQuoteSkolemsWith(ctxTy: TV): ST = quoteSkolemEnv.foldLeft[ST](ctxTy)((res, ty) => ty._2 | res)
+    def getCtxTy: ST = freeVarsInCurrentQuote.foldLeft[ST](BotType)((res, ty) => res | ty)
+    def trackFVs(fvsType: ST): Unit = {
+      println(s"Capture free variable type $fvsType")
+      freeVarsInCurrentQuote += fvsType
+    }
     def contains(name: Str): Bool = env.contains(name) || parent.exists(_.contains(name))
     def addMth(parent: Opt[Str], nme: Str, ty: MethodType): Unit = mthEnv += R(parent, nme) -> ty
     def addMthDefn(parent: Str, nme: Str, ty: MethodType): Unit = mthEnv += L(parent, nme) -> ty
@@ -123,9 +119,26 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
     def getMthDefn(parent: Str, nme: Str): Opt[MethodType] = getMth(L(parent, nme))
     private def containsMth(key: (Str, Str) \/ (Opt[Str], Str)): Bool = mthEnv.contains(key) || parent.exists(_.containsMth(key))
     def containsMth(parent: Opt[Str], nme: Str): Bool = containsMth(R(parent, nme))
-    def nest: Ctx = copy(Some(this), MutMap.empty, MutMap.empty)
+    def nest: Ctx = {
+      assert(!inQuote)
+      copy(Some(this), MutMap.empty, MutMap.empty)
+    }
+    /**
+      * Enter a new quoted environment with empty `quoteSkolemEnv` and `freeVarsInCurrentQuote`.
+      * A whole quasiquote (i.e., code"...") contains no binding or free variables at the beginning.
+      * For a quoted binding (e.g., code"x => ..."):
+      *  1. The context of the lambda body is still in the quotation so `inQuote = true`
+      *  2. `quoteSkolemEnv` only contains skolems created by the current binding and `freeVarsInCurrentQuote` only contains free variables appearing in the body.
+      * So we also apply empty `quoteSkolemEnv` and `freeVarsInCurrentQuote` at the beginning.
+      * e.g. `code"x => y => x + y"`. For `y => x + y`, freeVarsInCurrentQuote = {'gx, 'gy}, quoteSkolemEnv = {'gy}.
+      * To get the contextual type, we solve constraint the 'gx \/ 'gy <= 'a \/ 'gy, where 'a is a fresh type variable for `y => x + y`'s contextual type.
+      * So for `code"x => ..."`, freeVarsInCurrentQuote = {'a}, quoteSkolemEnv = {'gx}, where 'gx <= 'a.
+      * After calling `enterQuotedScope`, **solve the constraints** using `solveQuoteContext` to make sure free variables are handled correctly.
+      */
+    def enterQuotedScope: Ctx = copy(Some(this), MutMap.empty, MutMap.empty, lvl = lvl + 1, inQuote = true, quoteSkolemEnv = MutMap.empty, freeVarsInCurrentQuote = LinkedHashSet.empty)
+    def enterUnquote: Ctx = copy(Some(this), MutMap.empty, MutMap.empty, inQuote = false)
     def nextLevel[R](k: Ctx => R)(implicit raise: Raise, prov: TP): R = {
-      val newCtx = copy(lvl = lvl + 1, extrCtx = MutMap.empty)
+      val newCtx = copy(lvl = lvl + 1, extrCtx = MutSortMap.empty)
       val res = k(newCtx)
       val ec = newCtx.extrCtx
       assert(constrainedTypes || newCtx.extrCtx.isEmpty)
@@ -190,16 +203,14 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       env = MutMap.from(builtinBindings.iterator.map(nt => nt._1 -> VarSymbol(nt._2, Var(nt._1)))),
       mthEnv = MutMap.empty,
       lvl = MinLevel,
-      qenv = MutMap.empty,
-      fvars = MutSet.empty,
-      quotedLvl = 0,
-      isUnquoted = false,
+      quoteSkolemEnv = MutMap.empty,
+      freeVarsInCurrentQuote = LinkedHashSet.empty,
+      inQuote = false,
       inPattern = false,
-      funDefs = MutMap.empty,
       tyDefs = Map.from(builtinTypes.map(t => t.nme.name -> t)),
       tyDefs2 = MutMap.empty,
       inRecursiveDef = N,
-      MutMap.empty,
+      MutSortMap.empty,
     )
     def init: Ctx = if (!newDefs) initBase else {
       val res = initBase.copy(
@@ -264,6 +275,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
     else ClassTag(Var("true"), sing(TN("bool")))(noTyProv)
   val FalseType: ST = if (newDefs) TR(TN("false"), Nil)(noTyProv)
     else ClassTag(Var("false"), sing(TN("bool")))(noTyProv)
+  val AnnType: ST = TR(TN("Annotation"), Nil)(noTyProv)
   
   val EqlTag: TraitTag = TraitTag(Var("Eql"), Set.empty)(noProv)
   
@@ -277,17 +289,21 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
   private val preludeLoc = Loc(0, 0, Origin("<prelude>", 0, new FastParseHelpers("")))
   
   val nuBuiltinTypes: Ls[NuTypeDef] = Ls(
-    NuTypeDef(Cls, TN("Object"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Trt, TN("Eql"), (S(VarianceInfo.contra), TN("A")) :: Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Cls, TN("Num"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Cls, TN("Int"), Nil, N, N, N, Var("Num") :: Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Cls, TN("Bool"), Nil, N, N, S(Union(TN("true"), TN("false"))), Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Mod, TN("true"), Nil, N, N, N, Var("Bool") :: Nil, N, N, TypingUnit(Nil))(N, N),
-    NuTypeDef(Mod, TN("false"), Nil, N, N, N, Var("Bool") :: Nil, N, N, TypingUnit(Nil))(N, N),
-    NuTypeDef(Cls, TN("Str"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Als, TN("undefined"), Nil, N, N, S(Literal(UnitLit(true))), Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Als, TN("null"), Nil, N, N, S(Literal(UnitLit(false))), Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc)),
-    NuTypeDef(Cls, TN("Code"), (S(VarianceInfo.co) -> TN("T")) :: (S(VarianceInfo.co) -> TN("C")) :: Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc))
+    NuTypeDef(Cls, TN("Object"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Trt, TN("Eql"), (S(VarianceInfo.contra), TN("A")) :: Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Cls, TN("Num"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Cls, TN("Int"), Nil, N, N, N, Var("Num") :: Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Cls, TN("Bool"), Nil, N, N, S(Union(TN("true"), TN("false"))), Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Mod, TN("true"), Nil, N, N, N, Var("Bool") :: Nil, N, N, TypingUnit(Nil))(N, N, Nil),
+    NuTypeDef(Mod, TN("false"), Nil, N, N, N, Var("Bool") :: Nil, N, N, TypingUnit(Nil))(N, N, Nil),
+    NuTypeDef(Cls, TN("Str"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Als, TN("undefined"), Nil, N, N, S(Literal(UnitLit(true))), Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Als, TN("null"), Nil, N, N, S(Literal(UnitLit(false))), Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Cls, TN("Annotation"), Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Cls, TN("Code"), (S(VarianceInfo.co) -> TN("T")) :: (S(VarianceInfo.co) -> TN("C")) :: Nil, N, N, N, Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil),
+    NuTypeDef(Cls, TN("Var"), (S(VarianceInfo.in) -> TN("T")) :: (S(VarianceInfo.in) -> TN("C")) :: Nil, N, N, N, TyApp(Var("Code"), TN("T") :: TN("C") :: Nil) :: Nil, N, N, TypingUnit(Nil))(N, S(preludeLoc), Nil)
+    // Not yet implemented, so we do not define it yet
+    // NuTypeDef(Mod, TN("tailrec"), Nil, N, N, N, Var("Annotation") :: Nil, N, N, TypingUnit(Nil))(N, N, Nil),
   )
   val builtinTypes: Ls[TypeDef] =
     TypeDef(Cls, TN("?"), Nil, TopType, Nil, Nil, Set.empty, N, Nil) :: // * Dummy for pretty-printing unknown type locations
@@ -332,6 +348,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
     if (funkyTuples) ty else TupleType((N, ty.toUpper(ty.prov) ) :: Nil)(noProv)
   def pair(ty1: ST, ty2: ST): ST =
     TupleType(N -> ty1.toUpper(ty1.prov) :: N -> ty2.toUpper(ty2.prov) :: Nil)(noProv)
+  private val sharedVar = freshVar(noProv, N)(1)
   val builtinBindings: Bindings = {
     val tv = freshVar(noProv, N)(1)
     import FunctionType.{ apply => fun }
@@ -357,6 +374,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       "window" -> BotType,
       "typeof" -> fun(singleTup(TopType), StrType)(noProv),
       "toString" -> fun(singleTup(TopType), StrType)(noProv),
+      "String" -> fun(singleTup(TopType), StrType)(noProv),
       "not" -> fun(singleTup(BoolType), BoolType)(noProv),
       "succ" -> fun(singleTup(IntType), IntType)(noProv),
       "log" -> PolymorphicType(MinLevel, fun(singleTup(tv), UnitType)(noProv)),
@@ -378,6 +396,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       "sge" -> stringBinPred,
       "length" -> fun(singleTup(StrType), IntType)(noProv),
       "concat" -> fun(singleTup(StrType), fun(singleTup(StrType), StrType)(noProv))(noProv),
+      "join" -> fun(ArrayType(StrType.toUpper(noProv))(noProv), StrType)(noProv),
       "eq" -> {
         val v = freshVar(noProv, N)(1)
         PolymorphicType(MinLevel, fun(singleTup(v), fun(singleTup(v), BoolType)(noProv))(noProv))
@@ -387,6 +406,10 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         PolymorphicType(MinLevel, fun(singleTup(v), fun(singleTup(v), BoolType)(noProv))(noProv))
       },
       "error" -> BotType,
+      "," -> {
+        val v = sharedVar
+        PolymorphicType(MinLevel, fun(TupleType(N -> TopType.toUpper(provTODO) :: N -> v.toUpper(provTODO) :: Nil)(noProv), v)(noProv))
+      },
       "+" -> intBinOpTy,
       "-" -> intBinOpTy,
       "*" -> intBinOpTy,
@@ -401,7 +424,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       ">=" -> numberBinPred,
       "==" -> numberBinPred,
       "===" -> {
-        val v = freshVar(noProv, N)(1)
+        val v = sharedVar
         val eq = TypeRef(TypeName("Eql"), v :: Nil)(noProv)
         PolymorphicType(MinLevel, fun(pair(eq, v), BoolType)(noProv))
       },
@@ -769,14 +792,17 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
   }
   
   def mkProxy(ty: SimpleType, prov: TypeProvenance): SimpleType = {
-    if (recordProvenances) ProvType(ty)(prov)
+    if (recordProvenances)
+      if (ty.prov is prov) ty
+        // * ^ Hacky: without this we get some prov accumulation explosions... would be better to fix at the root!
+      else ProvType(ty)(prov)
     else ty // TODO don't do this when debugging errors
     // TODO switch to return this in perf mode:
     // ty
   }
   
   // TODO also prevent rebinding of "not"
-  val reservedVarNames: Set[Str] = Set("|", "&", "~", ",", "neg", "and", "or", "is")
+  val reservedVarNames: Set[Str] = Set("|", "&", "~", "neg", "and", "or", "is")
   
   object ValidVar {
     def unapply(v: Var)(implicit raise: Raise): S[Str] = S {
@@ -813,6 +839,23 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
   def notifyMoreErrors(action_ing: Str, prov: TypeProvenance)(implicit raise: Raise): Unit = {
     err(msg"Note: further errors omitted while ${action_ing} ${prov.desc}", prov.loco)
     ()
+  }
+
+  /**
+    * Solve constraints for quote context.
+    * See `enterQuotedScope`
+    * ctx: outer context
+    * newCtx: inner context generated by `enterQuotedScope`
+    */
+  def solveQuoteContext(ctx: Ctx, newCtx: Ctx)(implicit raise: Raise): Unit = if (ctx.inQuote) {
+    val ctxTy = freshVar(noTyProv, N)(ctx.lvl)
+    constrain(newCtx.getCtxTy, newCtx.getAllQuoteSkolemsWith(ctxTy))({
+      case err: ErrorReport =>
+        constrain(errType, ctxTy)(_ => (), noProv, ctx)
+        raise(err)
+      case diag => raise(diag)
+    }, noProv, ctx)
+    ctx.trackFVs(ctxTy)
   }
   
   /** Infer the type of a term.
@@ -864,6 +907,11 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       case v @ Var("_") =>
         if (ctx.inPattern || funkyTuples) freshVar(tp(v.toLoc, "wildcard"), N)
         else err(msg"Widlcard in expression position.", v.toLoc)
+      
+      case Ann(ann, receiver) => 
+        val annType = typeTerm(ann)
+        con(annType, AnnType, UnitType)
+        typeTerm(receiver)
         
       case Asc(v @ ValidPatVar(nme), ty) =>
         val ty_ty = typeType(ty)(ctx.copy(inPattern = false), raise, vars)
@@ -891,15 +939,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
             res
           }
       case v @ ValidVar(name) =>
-        val tyOpt = if (ctx.quotedLvl > 0 && !ctx.isUnquoted && !builtinBindings.contains(name)) {
-          ctx.qget(name) match {
-            case S(ctxTy) =>
-              if (!ctx.qenv.contains(name)) ctx.traceFV(ctxTy)
-              ctx.get(name, ctx.quotedLvl)
-            case _ => ctx.getTopLevel(name)
-          }
-        } else ctx.get(name, ctx.quotedLvl) orElse ctx.get(name, 0)
-        val ty = tyOpt.fold(err("identifier not found: " + name, term.toLoc): ST) {
+        val ty = ctx.get(name).fold(err("identifier not found: " + name, term.toLoc): ST) {
           case AbstractConstructor(absMths, traitWithMths) =>
             val td = ctx.tyDefs(name)
             err((msg"Instantiation of an abstract type is forbidden" -> term.toLoc)
@@ -912,7 +952,9 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
                   :: absMths.map { case mn => msg"Hint: method ${mn.name} is abstract" -> mn.toLoc }.toList
               )
             )
-          case VarSymbol(ty, _) => ty
+          case VarSymbol(ty, _) =>
+            if (ctx.inQuote) ctx.getQuoteSkolem(name).foreach(sk => ctx.trackFVs(sk))
+            ty
           case lti: LazyTypeInfo =>
             // TODO deal with classes without parameter lists (ie needing `new`)
             def checkNotAbstract(decl: NuDecl) =
@@ -1007,6 +1049,10 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
             prov.copy(desc = "prohibited undefined element")) // TODO better reporting for this; the prov isn't actually used
         con(t_a, ArrayType(elemType.toUpper(tp(i.toLoc, "array element")))(prov), elemType) |
           TypeRef(TypeName("undefined"), Nil)(prov.copy(desc = "possibly-undefined array access"))
+      case While(cnd, bod) =>
+        val t_cnd = typeMonomorphicTerm(cnd)
+        con(t_cnd, BoolType, UnitType)
+        typeTerm(Blk(bod :: UnitLit(true) :: Nil))
       case Assign(s @ Sel(r, f), rhs) =>
         val o_ty = typeMonomorphicTerm(r)
         val sprov = tp(s.toLoc, "assigned selection")
@@ -1031,6 +1077,27 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         con(i_ty, IntType, TopType)
         val vl = typeMonomorphicTerm(rhs)
         con(vl, elemType, UnitType.withProv(prov))
+      case Assign(lhs @ (v: Var), rhs) =>
+        val rhs_ty = typeTerm(rhs)
+        def checkMut(fd: NuFunDef) =
+          if (!fd.isMut) err(msg"${fd.describe} `${fd.nme.name
+            }` is not mutable and cannot be reassigned", prov.loco)
+        ctx.get(v.name) match {
+          case S(VarSymbol(ty, vr)) =>
+            con(rhs_ty, ty, UnitType.withProv(prov))
+          case S(CompletedTypeInfo(m: TypedNuFun)) =>
+            checkMut(m.fd)
+            val lhs_ty = m.typeSignature
+            con(rhs_ty, lhs_ty, UnitType.withProv(prov))
+          case S(dti @ DelayedTypeInfo(fd: NuFunDef)) =>
+            checkMut(fd)
+            val lhs_ty = dti.mutRecTV
+            con(rhs_ty, lhs_ty, UnitType.withProv(prov))
+          case _ =>
+            // TODO dedup w/ below
+            err(msg"Illegal assignment" -> prov.loco
+              :: msg"cannot assign to ${lhs.describe}" -> lhs.toLoc :: Nil)
+        }
       case Assign(lhs, rhs) =>
         err(msg"Illegal assignment" -> prov.loco
           :: msg"cannot assign to ${lhs.describe}" -> lhs.toLoc :: Nil)
@@ -1054,34 +1121,64 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       case pat if ctx.inPattern =>
         err(msg"Unsupported pattern shape${
           if (dbg) " ("+pat.getClass.toString+")" else ""}:", pat.toLoc)(raise)
-      case Lam(pat, body) if ctx.quotedLvl > 0 && !ctx.isUnquoted =>
-        println(s"TYPING QUOTED LAM")
-        ctx.nest.poly { newCtx =>
-          val param_ty = typePattern(pat)(newCtx, raise, vars)
-          val body_ty = typeTerm(body)(newCtx, raise, vars,
-            generalizeCurriedFunctions || doGenLambdas && constrainedTypes)
-          val res = freshVar(noTyProv, N)(ctx.lvl)
-          val ctxTy = freshVar(noTyProv, N)(ctx.lvl)
-          con(newCtx.getCtxTy, ctxTy, res)(ctx)
-          ctx.traceFV(ctxTy)
-          FunctionType(param_ty, body_ty)(tp(term.toLoc, "function"))
-        }
       case Lam(pat, body) if doGenLambdas =>
         println(s"TYPING POLY LAM")
-        ctx.nest.poly { newCtx =>
+        val newCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest
+        newCtx.poly { newCtx =>
           val param_ty = typePattern(pat)(newCtx, raise, vars)
-          val midCtx = newCtx
           val body_ty = typeTerm(body)(newCtx, raise, vars,
             generalizeCurriedFunctions || doGenLambdas && constrainedTypes)
+          solveQuoteContext(ctx, newCtx)
           FunctionType(param_ty, body_ty)(tp(term.toLoc, "function"))
         }
       case Lam(pat, body) =>
-        val newCtx = ctx.nest
+        val newCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest
         val param_ty = typePattern(pat)(newCtx, raise, vars)
         assert(!doGenLambdas)
         val body_ty = typeTerm(body)(newCtx, raise, vars,
           generalizeCurriedFunctions || doGenLambdas)
+        solveQuoteContext(ctx, newCtx)
         FunctionType(param_ty, body_ty)(tp(term.toLoc, "function"))
+      case NuNew(cls) => typeMonomorphicTerm(App(NuNew(cls), Tup(Nil).withLoc(term.toLoc.map(_.right))))
+      case app @ App(nw @ NuNew(cls), args) =>
+        cls match {
+          case _: TyApp => // * TODO improve (hacky)
+            err(msg"Type arguments in `new` expressions are not yet supported", prov.loco)
+          case _ => 
+        }
+        val cls_ty = typeType(cls.toTypeRaise)
+        def process(clsNme: Str) = {
+            println(clsNme, ctx.tyDefs2.get(clsNme))
+            ctx.tyDefs2.get(clsNme) match {
+              case N =>
+                err(msg"Type `${clsNme}` cannot be used in `new` expression", term.toLoc)
+              case S(lti) =>
+                def checkNotAbstract(decl: NuDecl) =
+                  if (decl.isAbstract)
+                    err(msg"Class ${decl.name} is abstract and cannot be instantiated", term.toLoc)
+                lti match {
+                  case dti: DelayedTypeInfo if !(dti.kind is Cls) =>
+                    err(msg"${dti.kind.str.capitalize} ${dti.name} cannot be used in `new` expression",
+                      prov.loco)
+                  case dti: DelayedTypeInfo =>
+                    checkNotAbstract(dti.decl)
+                    dti.typeSignature(true, prov.loco)
+                }
+            }
+        }
+        val new_ty = cls_ty.unwrapProxies match {
+          case TypeRef(clsNme, targs) =>
+            // FIXME don't disregard `targs`
+            process(clsNme.name)
+          case err @ ClassTag(ErrTypeId, _) => err
+          case ClassTag(Var(clsNme), _) => process(clsNme)
+          case _ =>
+            // * Debug with: ${cls_ty.getClass.toString}
+            err(msg"Unexpected type `${cls_ty.expPos}` after `new` keyword" -> cls.toLoc :: Nil)
+        }
+        val res = freshVar(prov, N)
+        val argProv = tp(args.toLoc, "argument list")
+        con(new_ty, FunctionType(typeTerm(args).withProv(argProv), res)(noProv), res)
       case App(App(Var("is"), _), _) => // * Old-style operators
         val desug = If(IfThen(term, Var("true")), S(Var("false")))
         term.desugaredTerm = S(desug)
@@ -1178,7 +1275,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         //   Returns a function expecting an additional argument of type `Class` before the method arguments
         def rcdSel(obj: Term, fieldName: Var) = {
           val o_ty = typeMonomorphicTerm(obj)
-          val res = freshVar(prov, N, Opt.when(!fieldName.name.startsWith("_"))(fieldName.name))
+          val res = freshVar(prov, N, Opt.when(!fieldName.name.startsWith("_") && !fieldName.isIndex)(fieldName.name))
           val obj_ty = mkProxy(o_ty, tp(obj.toCoveringLoc, "receiver"))
           val rcd_ty = RecordType.mk(
             fieldName -> res.toUpper(tp(fieldName.toLoc, "field selector")) :: Nil)(prov)
@@ -1235,20 +1332,13 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
           case _ => mthCallOrSel(obj, fieldName)
         }
       case Let(isrec, nme, rhs, bod) =>
-        if (ctx.quotedLvl > 0 && !ctx.isUnquoted) {
-          ctx.nest.poly {
-            newCtx => {
-              val rhs_ty = typeTerm(rhs)(newCtx, raise, vars, genLambdas)
-              newCtx += nme.name -> VarSymbol(rhs_ty, nme)
-              val res_ty = typePolymorphicTerm(bod)(newCtx, raise, vars)
-
-              val res = freshVar(noTyProv, N)(ctx.lvl)
-              val ctxTy = freshVar(noTyProv, N)(ctx.lvl)
-              con(newCtx.getCtxTy, ctxTy, res)(ctx)
-              ctx.traceFV(ctxTy)
-              res_ty
-            }
-          }
+        if (ctx.inQuote) {
+          val rhs_ty = typeTerm(rhs)
+          val newCtx = ctx.enterQuotedScope
+          newCtx += nme.name -> VarSymbol(rhs_ty, nme)
+          val res_ty = typeTerm(bod)(newCtx, raise, vars, genLambdas)
+          solveQuoteContext(ctx, newCtx)
+          res_ty
         }
         else if (newDefs && !isrec) {
           // if (isrec) ???
@@ -1273,14 +1363,16 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         } else typeTerms(stmts, false, Nil)(ctx.nest, raise, prov, vars, genLambdas)
       case Bind(l, r) =>
         val l_ty = typeMonomorphicTerm(l)
-        val newCtx = ctx.nest // so the pattern's context don't merge with the outer context!
+        val newCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest // so the pattern's context don't merge with the outer context!
         val r_ty = typePattern(r)(newCtx, raise)
         ctx ++= newCtx.env
+        solveQuoteContext(ctx, newCtx)
         con(l_ty, r_ty, r_ty)
       case Test(l, r) =>
         val l_ty = typeMonomorphicTerm(l)
-        val newCtx = ctx.nest
+        val newCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest
         val r_ty = typePattern(r)(newCtx, raise) // TODO make these bindings flow
+        solveQuoteContext(ctx, newCtx)
         con(l_ty, r_ty, TopType)
         BoolType
       case With(t, rcd) =>
@@ -1288,16 +1380,20 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         val rcd_ty = typeMonomorphicTerm(rcd)
         (t_ty without rcd.fields.iterator.map(_._1).toSortedSet) & (rcd_ty, prov)
       case CaseOf(s, cs) =>
-        val s_ty = typeMonomorphicTerm(s)
-        if (newDefs) con(s_ty, ObjType.withProv(prov), TopType)
-        val (tys, cs_ty) = typeArms(s |>? {
-          case v: Var => v
-          case Asc(v: Var, _) => v
-        }, cs)
-        val req = tys.foldRight(BotType: SimpleType) {
-          case ((a_ty, tv), req) => a_ty & tv | req & a_ty.neg()
+        val oldCtx = ctx
+        (if (ctx.inQuote) ctx.enterQuotedScope else ctx) |> { implicit ctx =>
+          val s_ty = typeMonomorphicTerm(s)
+          if (newDefs) con(s_ty, ObjType.withProv(prov), TopType)
+          val (tys, cs_ty) = typeArms(s |>? {
+            case v: Var => v
+            case Asc(v: Var, _) => v
+          }, cs)
+          solveQuoteContext(oldCtx, ctx)
+          val req = tys.foldRight(BotType: SimpleType) {
+            case ((a_ty, tv), req) => a_ty & tv | req & a_ty.neg()
+          }
+          con(s_ty, req, cs_ty)
         }
-        con(s_ty, req, cs_ty)
       case elf: If =>
         try typeTerm(desugarIf(elf)) catch {
           case e: ucs.DesugaringException => err(e.messages)
@@ -1313,7 +1409,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
 
         // the assumed shape of an IfBody is a List[IfThen, IfThen, IfElse] with an optional IfElse at the end
         arms.foreach { case AdtMatchPat(pat, rhs) =>
-          val nestCtx = ctx.nest
+          val nestCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest
           def handlePat(pat: Term, expected: SimpleType): Unit = pat match {
             case Var("_") =>
             // Cases where the pattern is a single variable term
@@ -1432,51 +1528,16 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
             //   ()
             // and others
             case pat =>
-              lastWords(s"Cannot handle pattern ${pat}")
+              lastWords(s"Cannot handle pattern ${pat.showDbg}")
           }
 
           handlePat(pat, cond_ty)
           nestCtx |> { implicit ctx =>
             con(typeTerm(rhs), ret_ty, ret_ty)
           }
+          solveQuoteContext(ctx, nestCtx)
         }
         ret_ty
-      case New(S((nmedTy, trm)), TypingUnit(Nil)) if !newDefs =>
-        typeMonomorphicTerm(App(Var(nmedTy.base.name).withLocOf(nmedTy), trm))
-      case nw @ New(S((nmedTy, trm: Tup)), TypingUnit(Nil)) if newDefs =>
-        typeMonomorphicTerm(App(New(S((nmedTy, UnitLit(true))), TypingUnit(Nil)).withLocOf(nw), trm))
-      case New(S((nmedTy, UnitLit(true))), TypingUnit(Nil)) if newDefs =>
-        if (nmedTy.targs.nonEmpty)
-          err(msg"Type arguments in `new` expressions are not yet supported", prov.loco)
-        ctx.get(nmedTy.base.name).fold(err("identifier not found: " + nmedTy.base, term.toLoc): ST) {
-          case AbstractConstructor(absMths, traitWithMths) => die
-          case VarSymbol(ty, _) =>
-            err(msg"Cannot use `new` on non-class variable of type ${ty.expPos}", term.toLoc)
-          case lti: LazyTypeInfo =>
-            def checkNotAbstract(decl: NuDecl) =
-              if (decl.isAbstract)
-                err(msg"Class ${decl.name} is abstract and cannot be instantiated", term.toLoc)
-            lti match {
-              case ti: CompletedTypeInfo =>
-                ti.member match {
-                  case _: TypedNuFun | _: NuParam =>
-                    err(msg"${ti.member.kind.str.capitalize} ${ti.member.name
-                      } cannot be used in `new` expression", prov.loco)
-                  case ti: TypedNuCls =>
-                    checkNotAbstract(ti.decl)
-                    ti.typeSignature(true, prov.loco)
-                  case ti: TypedNuDecl =>
-                    err(msg"${ti.kind.str.capitalize} ${ti.name
-                      } cannot be used in term position", prov.loco)
-                }
-              case dti: DelayedTypeInfo if !(dti.kind is Cls) =>
-                    err(msg"${dti.kind.str.capitalize} ${dti.name
-                      } cannot be used in `new` expression", prov.loco)
-              case dti: DelayedTypeInfo =>
-                checkNotAbstract(dti.decl)
-                dti.typeSignature(true, prov.loco)
-            }
-        }
       case New(base, args) => err(msg"Currently unsupported `new` syntax", term.toCoveringLoc)
       case TyApp(base, _) =>
         err(msg"Type application syntax is not yet supported", term.toLoc) // TODO handle
@@ -1510,32 +1571,27 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         res
       case Eqn(lhs, rhs) =>
         err(msg"Unexpected equation in this position", term.toLoc)
-      case Quoted(body) =>
-        val newCtx = ctx.nest.copy(quotedLvl = ctx.quotedLvl + 1, qenv = MutMap.empty, fvars = MutSet.empty, isUnquoted = false)
-        val bodyType = ctx.parent match {
-          case S(p) if p.quotedLvl > ctx.quotedLvl =>
-            ctx.unwrap(p.wrapCode.map(_._1), () => typeTerm(body)(newCtx, raise, vars, genLambdas))
-          case _ => typeTerm(body)(newCtx, raise, vars, genLambdas)
-        }
-        TypeRef(TypeName("Code"), bodyType :: newCtx.getCtxTy :: Nil)(noProv)
-      case Unquoted(body) =>
-        if (ctx.quotedLvl > 0) {
-          val newCtx = ctx.nest.copy(quotedLvl = ctx.quotedLvl - 1, isUnquoted = true)
-          val wrappedCodes = ctx.wrapCode
-          println("Map qenv to env in unquote...")
-          wrappedCodes.foreach(c => {
-            println(s"Create ${c._2} in newCtx")
-            newCtx += c
-          })
+      case q @ Quoted(body) =>
+        if (ctx.inQuote) err(msg"Nested quotation is not allowed.", q.toLoc)
+        else {
+          val newCtx = ctx.enterQuotedScope
           val bodyType = typeTerm(body)(newCtx, raise, vars, genLambdas)
-          val res = freshVar(noTyProv, N)(newCtx.lvl)
-          val ctxTy = freshVar(noTyProv, N)(newCtx.lvl)
-          val ty =
-            con(bodyType, TypeRef(TypeName("Code"), res :: ctx.qenv.foldLeft[ST](ctxTy)((res, ty) => ty._2 | res) :: Nil)(noProv), res)(newCtx)
-          ctx.traceFV(ctxTy)
-          ty
+          TypeRef(TypeName("Code"), bodyType :: newCtx.getCtxTy :: Nil)(TypeProvenance(q.toLoc, "code fragment"))
         }
-        else err("Unquotes should be enclosed with a quasiquote.", body.toLoc)(raise)
+      case uq @ Unquoted(body) =>
+        if (ctx.inQuote) {
+          val newCtx = ctx.enterUnquote
+          val bodyType = typeTerm(body)(newCtx, raise, vars, genLambdas)
+          val res = freshVar(TypeProvenance(uq.toLoc, "code fragment body type"), N)
+          val ctxTy = freshVar(TypeProvenance(body.toLoc, "code fragment context type"), N)
+          val ty =
+            con(bodyType, TypeRef(TypeName("Code"), res :: ctxTy :: Nil)(TypeProvenance(body.toLoc, "unquote body")), res)(newCtx)
+          ctx.trackFVs(ctxTy)
+          ty.withProv(TypeProvenance(uq.toLoc, "unquote"))
+        }
+        else err("Unquotes should be enclosed with a quasiquote.", uq.toLoc)(raise)
+      case Rft(bse, tu) =>
+        err(msg"Refinement terms are not yet supported", term.toLoc)
     }
   }(r => s"$lvl. : ${r}")
   
@@ -1545,8 +1601,8 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
     case NoCases => Nil -> BotType
     case Wildcard(b) =>
       val fv = freshVar(tp(arms.toLoc, "wildcard pattern"), N)
-      val newCtx = ctx.nest
-      scrutVar match {
+      val newCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest
+      val res = scrutVar match {
         case Some(v) =>
           newCtx += v.name -> VarSymbol(fv, v)
           val b_ty = typeTerm(b)(newCtx, raise, vars, genLambdas)
@@ -1554,6 +1610,8 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         case _ =>
           (fv -> TopType :: Nil) -> typeTerm(b)
       }
+      solveQuoteContext(ctx, newCtx)
+      res
     case Case(pat, bod, rest) =>
       val (tagTy, patTy) : (ST, ST) = pat match {
         case lit: Lit =>
@@ -1613,7 +1671,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
               }
           }
       }
-      val newCtx = ctx.nest
+      val newCtx = if (ctx.inQuote) ctx.enterQuotedScope else ctx.nest
       val (req_ty, bod_ty, (tys, rest_ty)) = scrutVar match {
         case S(v) =>
           if (newDefs) {
@@ -1632,6 +1690,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
           val bod_ty = typeTerm(bod)(newCtx, raise, vars, genLambdas)
           (tagTy -> TopType, bod_ty, typeArms(scrutVar, rest))
       }
+      solveQuoteContext(ctx, newCtx)
       (req_ty :: tys) -> (bod_ty | rest_ty)
   }
   
@@ -1813,7 +1872,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
       case TypedNuAls(level, td, tparams, body) =>
         ectx(tparams) |> { implicit ectx =>
           NuTypeDef(td.kind, td.nme, td.tparams, N, N, S(go(body)), Nil, N, N, TypingUnit(Nil))(
-            td.declareLoc, td.abstractLoc)
+            td.declareLoc, td.abstractLoc, td.annotations)
         }
       case TypedNuMxn(level, td, thisTy, superTy, tparams, params, members) =>
         ectx(tparams) |> { implicit ectx =>
@@ -1825,7 +1884,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
             Option.when(!(TopType <:< superTy))(go(superTy)),
             Option.when(!(TopType <:< thisTy))(go(thisTy)),
             mkTypingUnit(thisTy, members)
-          )(td.declareLoc, td.abstractLoc)
+          )(td.declareLoc, td.abstractLoc, td.annotations)
         }
       case TypedNuCls(level, td, tparams, params, acParams, members, thisTy, sign, ihtags, ptps) =>
         ectx(tparams) |> { implicit ectx =>
@@ -1845,7 +1904,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
                 case N => tun
               }
             }
-          )(td.declareLoc, td.abstractLoc)
+          )(td.declareLoc, td.abstractLoc, td.annotations)
         }
       case TypedNuTrt(level, td, tparams, members, thisTy, sign, ihtags, ptps) => 
         ectx(tparams) |> { implicit ectx =>
@@ -1857,10 +1916,11 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
             N,//TODO
             Option.when(!(TopType <:< thisTy))(go(thisTy)),
             mkTypingUnit(thisTy, members)
-          )(td.declareLoc, td.abstractLoc)
+          )(td.declareLoc, td.abstractLoc, td.annotations)
         }
       case tf @ TypedNuFun(level, fd, bodyTy) =>
-        NuFunDef(fd.isLetRec, fd.nme, fd.symbolicNme, Nil, R(go(tf.typeSignature)))(fd.declareLoc, fd.virtualLoc, fd.signature, fd.outer, fd.genField)
+        NuFunDef(fd.isLetRec, fd.nme, fd.symbolicNme, Nil, R(go(tf.typeSignature)))(
+          fd.declareLoc, fd.virtualLoc, fd.mutLoc, fd.signature, fd.outer, fd.genField, fd.annotations)
       case p: NuParam =>
         ??? // TODO
       case TypedNuDummy(d) =>
@@ -1883,8 +1943,7 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
         case tv: TypeVariable if stopAtTyVars => tv.asTypeVar
         case tv: TypeVariable => ectx.tps.getOrElse(tv, {
           val nv = tv.asTypeVar
-          if (!seenVars(tv)) {
-            seenVars += tv
+          if (seenVars.add(tv)) {
             tv.assignedTo match {
               case S(ty) =>
                 val b = go(ty)
@@ -1957,13 +2016,18 @@ class Typer(var dbg: Boolean, var verbose: Bool, var explainErrors: Bool, val ne
             newBounds.iterator.flatMap(_._2.freeTypeVariables)
           val fvars = qvars.filter(tv => ftvs.contains(tv.asTypeVar))
           if (fvars.isEmpty) b else
-            PolyType(fvars.map(_.asTypeVar pipe (R(_))).toList, b)
+            PolyType(fvars
+              .toArray.sorted
+              .map(_.asTypeVar pipe (R(_))).toList, b)
         case ConstrainedType(cs, bod) =>
-          val (ubs, others1) = cs.groupMap(_._1)(_._2).toList.partition(_._2.sizeIs > 1)
-          val lbs = others1.mapValues(_.head).groupMap(_._2)(_._1).toList
+          val groups1, groups2 = LinkedHashMap.empty[ST, Buffer[ST]]
+          cs.foreach { case (lo, hi) => groups1.getOrElseUpdate(lo, Buffer.empty) += hi }
+          val (ubs, others1) = groups1.toList.partition(_._2.sizeIs > 1)
+          others1.foreach { case (k, vs) => groups2.getOrElseUpdate(vs.head, Buffer.empty) += k }
+          val lbs = groups2.toList
           val bounds = (ubs.mapValues(_.reduce(_ &- _)) ++ lbs.mapValues(_.reduce(_ | _)).map(_.swap))
-          val procesased = bounds.map { case (lo, hi) => Bounds(go(lo), go(hi)) }
-          Constrained(go(bod), Nil, procesased)
+          val processed = bounds.map { case (lo, hi) => Bounds(go(lo), go(hi)) }
+          Constrained(go(bod), Nil, processed)
         
         // case DeclType(lvl, info) =>
           

@@ -27,7 +27,7 @@ code"x => x"
 
 :js
 :ne
-code"x => ${x}"
+code"x => ${code"x"}"
 //│ Code[forall 'a. 'a -> 'a, nothing]
 //│ // Prelude
 //│ class TypingUnit2 {}
@@ -72,7 +72,7 @@ code"f => f(114)"
 //│ class TypingUnit5 {}
 //│ const typing_unit5 = new TypingUnit5;
 //│ // Query 1
-//│ res = ((f1) => Lam(Var(f1), App(Var(f1), Tup(Fld(IntLit(114))))))(freshName("f"));
+//│ res = ((f1) => Lam(Var(f1), App(Var(f1), Tup(Fld(IntLit(114), false, false, false)))))(freshName("f"));
 //│ // End of generated code
 
 
@@ -132,7 +132,7 @@ code"(x => x + 1)(41)"
 //│ class TypingUnit10 {}
 //│ const typing_unit10 = new TypingUnit10;
 //│ // Query 1
-//│ res = App(Bra(((x1) => Lam(Var(x1), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"))), Tup(Fld(IntLit(41))));
+//│ res = App(Bra(((x1) => Lam(Var(x1), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"))), Tup(Fld(IntLit(41), false, false, false)));
 //│ // End of generated code
 
 
@@ -150,14 +150,13 @@ code"let x = ${Const(42)} in ${code"x"}"
 
 :js
 :ne
-code"let x = 1 in (discard(x + 1); x + 2)"
+code"let x = 1 in (x + 1, x + 2)"
 //│ Code[Int, nothing]
 //│ // Prelude
-//│ function discard(x) {}
 //│ class TypingUnit12 {}
 //│ const typing_unit12 = new TypingUnit12;
 //│ // Query 1
-//│ res = ((x1) => Let(Var(x1), IntLit(1), Bra(Blk(App(Var(discard), Tup(Fld(App(Var("+"), Var(x1), IntLit(1))))), App(Var("+"), Var(x1), IntLit(2))))))(freshName("x"));
+//│ res = ((x1) => Let(Var(x1), IntLit(1), App(Var(","), App(Var("+"), Var(x1), IntLit(1)), App(Var("+"), Var(x1), IntLit(2)))))(freshName("x"));
 //│ // End of generated code
 
 
@@ -169,18 +168,18 @@ code"[1, 2, 3]"
 //│ class TypingUnit13 {}
 //│ const typing_unit13 = new TypingUnit13;
 //│ // Query 1
-//│ res = Tup(Fld(IntLit(1)), Fld(IntLit(2)), Fld(IntLit(3)));
+//│ res = Tup(Fld(IntLit(1), false, false, false), Fld(IntLit(2), false, false, false), Fld(IntLit(3), false, false, false));
 //│ // End of generated code
 
 :js
 :ne
-code"[1, 2, 3]._1"
-//│ Code[1, nothing]
+code"[1, 2, 3].1"
+//│ Code[2, nothing]
 //│ // Prelude
 //│ class TypingUnit14 {}
 //│ const typing_unit14 = new TypingUnit14;
 //│ // Query 1
-//│ res = Sel(Tup(Fld(IntLit(1)), Fld(IntLit(2)), Fld(IntLit(3))), Var("_1"));
+//│ res = Sel(Tup(Fld(IntLit(1), false, false, false), Fld(IntLit(2), false, false, false), Fld(IntLit(3), false, false, false)), Var("1"));
 //│ // End of generated code
 
 
@@ -192,7 +191,7 @@ code"true"
 //│ class TypingUnit15 {}
 //│ const typing_unit15 = new TypingUnit15;
 //│ // Query 1
-//│ res = Var(true);
+//│ res = Var("true");
 //│ // End of generated code
 
 
@@ -228,7 +227,7 @@ code"{x: 42} with {y: true}"
 //│ class TypingUnit18 {}
 //│ const typing_unit18 = new TypingUnit18;
 //│ // Query 1
-//│ res = With(Bra(Rcd(Var("x"), IntLit(42))), Rcd(Var("y"), Var(true)));
+//│ res = With(Bra(Rcd(Var("x"), IntLit(42))), Rcd(Var("y"), Var("true")));
 //│ // End of generated code
 
 
@@ -246,14 +245,14 @@ code"${Const(42)}"
 
 :js
 :ne
+:e
 code"code"42""
-//│ Code[Code[42, nothing], nothing]
-//│ // Prelude
-//│ class TypingUnit20 {}
-//│ const typing_unit20 = new TypingUnit20;
-//│ // Query 1
-//│ res = Quoted(IntLit(42));
-//│ // End of generated code
+//│ ╔══[ERROR] Nested quotation is not allowed.
+//│ ║  l.249: 	code"code"42""
+//│ ╙──       	     ^^^^^^^^
+//│ Code[error, nothing]
+//│ Code generation encountered an error:
+//│   nested quotation is not allowed.
 
 
 :js
@@ -264,7 +263,7 @@ code"Const(42)"
 //│ class TypingUnit21 {}
 //│ const typing_unit21 = new TypingUnit21;
 //│ // Query 1
-//│ res = App(Var(Const), Tup(Fld(IntLit(42))));
+//│ res = App(Var("Const"), Tup(Fld(IntLit(42), false, false, false)));
 //│ // End of generated code
 
 
@@ -276,7 +275,7 @@ code"if (1 == 2) then false else true"
 //│ class TypingUnit22 {}
 //│ const typing_unit22 = new TypingUnit22;
 //│ // Query 1
-//│ res = CaseOf(Bra(App(Var("=="), IntLit(1), IntLit(2))), Case(Var(true), Var(false), Wildcard(Var(true))));
+//│ res = CaseOf(Bra(App(Var("=="), IntLit(1), IntLit(2))), Case(Var("true"), Var("false"), Wildcard(Var("true"))));
 //│ // End of generated code
 
 
@@ -316,7 +315,7 @@ code"p => if p.x ===
 //│ // Query 2
 //│ globalThis.one = Const(1);
 //│ // Query 3
-//│ res = ((p1) => Lam(Var(p1), CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), zero), Case(Var(true), Var(true), Wildcard(CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), one), Case(Var(true), Var(false), Wildcard(Var(false)))))))))(freshName("p"));
+//│ res = ((p1) => Lam(Var(p1), CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), zero), Case(Var("true"), Var("true"), Wildcard(CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), one), Case(Var("true"), Var("false"), Wildcard(Var("false")))))))))(freshName("p"));
 //│ // End of generated code
 
 
@@ -324,7 +323,7 @@ code"p => if p.x ===
 :ne
 fun test(cde, f) =
   code"x => x + ${f(cde)}"
-//│ fun test: forall 'a 'b. ('a, 'a -> Code[Int, ??x | 'b]) -> Code[Int -> Int, 'b]
+//│ fun test: forall 'a 'b. ('a, 'a -> Code[Int, 'b]) -> Code[Int -> Int, 'b]
 //│ // Prelude
 //│ class TypingUnit25 {}
 //│ const typing_unit25 = new TypingUnit25;
@@ -339,7 +338,7 @@ fun test(cde, f) =
 
 :js
 :ne
-code"""let x = ${log("foo"); Const(0)} in x + 1"""
+code"""let x = ${log("foo"), Const(0)} in x + 1"""
 //│ Code[Int, nothing]
 //│ // Prelude
 //│ function log(x) {
@@ -348,17 +347,14 @@ code"""let x = ${log("foo"); Const(0)} in x + 1"""
 //│ class TypingUnit26 {}
 //│ const typing_unit26 = new TypingUnit26;
 //│ // Query 1
-//│ res = ((x1) => Let(Var(x1), (() => {
-//│   log("foo");
-//│   return Const(0);
-//│ })(), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"));
+//│ res = ((x1) => Let(Var(x1), (log("foo") , Const(0)), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"));
 //│ // End of generated code
 
 :ne
 fun foo(dbg) =
   code"x => ${let c = code"x" in dbg(c)}"
-//│ fun foo: forall 'a 'b 'c. (Code['a, ??x] -> Code['b, ??x0 | 'c]) -> Code['a -> 'b, 'c]
+//│ fun foo: forall 'a 'b 'c. (Code['a, ??x] -> Code['b, 'c]) -> Code['a -> 'b, 'c]
 
 :ne
-code"x => let c = 42 in ${x}"
+code"x => let c = 42 in ${code"x"}"
 //│ Code[forall 'a. 'a -> 'a, nothing]

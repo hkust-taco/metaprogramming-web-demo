@@ -32,7 +32,7 @@ type NonBlocking[out A, out E] = Effectful[A, E \ Block]
 
 // * Example use of NonBlocking in an annotation; the type arguments are inferred
 fun f(x) = x : NonBlocking
-//│ fun f: forall 'a 'b. NonBlocking['b, 'a] -> NonBlocking['b, 'a]
+//│ fun f: forall 'a 'b. NonBlocking['a, 'b] -> NonBlocking['a, 'b]
 
 
 // * the `listener` callback should be non-blocking
@@ -59,12 +59,12 @@ onMousePressed(event => readLine.flatMap(println))
 
 
 class Event
-class MouseEvent: Event
+class MouseEvent extends Event
 module Register
 //│ class Event {
 //│   constructor()
 //│ }
-//│ class MouseEvent: Event {
+//│ class MouseEvent extends Event {
 //│   constructor()
 //│ }
 //│ module Register

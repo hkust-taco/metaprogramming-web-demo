@@ -2,10 +2,18 @@ import Wart._
 
 enablePlugins(ScalaJSPlugin)
 
-ThisBuild / scalaVersion     := "2.13.9"
+ThisBuild / scalaVersion     := "2.13.12"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.lptk"
 ThisBuild / organizationName := "LPTK"
+ThisBuild / scalacOptions ++= Seq(
+  "-deprecation",
+  "-feature",
+  "-unchecked",
+  "-language:higherKinds",
+  if (insideCI.value) "-Wconf:any:error"
+  else                "-Wconf:any:warning",
+)
 
 lazy val root = project.in(file("."))
   .aggregate(mlscriptJS, mlscriptJVM, ts2mlsTest, compilerJVM)
@@ -18,17 +26,9 @@ lazy val mlscript = crossProject(JSPlatform, JVMPlatform).in(file("."))
   .settings(
     name := "mlscript",
     scalacOptions ++= Seq(
-      "-deprecation",
-      "-feature",
-      "-unchecked",
-      "-language:higherKinds",
       "-Ywarn-value-discard",
       "-Ypatmat-exhaust-depth:160",
     ),
-    scalacOptions ++= {
-      if (insideCI.value) Seq("-Wconf:any:error")
-      else                Seq("-Wconf:any:warning")
-    },
     wartremoverWarnings ++= Warts.allBut(
       Recursion, Throw, Nothing, Return, While, IsInstanceOf,
       Var, MutableDataStructures, NonUnitStatements,
@@ -36,7 +36,8 @@ lazy val mlscript = crossProject(JSPlatform, JVMPlatform).in(file("."))
       StringPlusAny, Any, ToString,
       JavaSerializable, Serializable, Product, ToString,
       LeakingSealed, Overloading,
-      Option2Iterable, IterableOps, ListAppend
+      Option2Iterable, IterableOps, ListAppend, SeqApply,
+      TripleQuestionMark,
     ),
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.12" % Test,
     libraryDependencies += "com.lihaoyi" %%% "sourcecode" % "0.3.0",
@@ -60,10 +61,6 @@ lazy val mlscriptJS = mlscript.js
 lazy val ts2mls = crossProject(JSPlatform, JVMPlatform).in(file("ts2mls"))
   .settings(
     name := "ts2mls",
-    scalaVersion := "2.13.8",
-    scalacOptions ++= Seq(
-      "-deprecation"
-    )
   )
   .jvmSettings()
   .jsSettings(
@@ -76,7 +73,6 @@ lazy val ts2mlsJVM = ts2mls.jvm
 
 lazy val ts2mlsTest = project.in(file("ts2mls"))
   .settings(
-    scalaVersion := "2.13.8",
     Test / test := ((ts2mlsJVM / Test / test) dependsOn (ts2mlsJS / Test / test)).value
   )
 

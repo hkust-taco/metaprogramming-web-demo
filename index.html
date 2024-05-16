@@ -19,7 +19,7 @@ fun checkedDiv = x `=> y `=> x `/ assertNotZero(y)
 
 fun show: Code[anything, anything] -> Str = _ => "debug"
 fun inc(dbg) =
-  x `=> let c = x `+ `1 in dbg(c); c
+  x `=> let c = x `+ `1 in dbg(c), c
 inc(c => log(show(c)))
 
 fun body_naive(x, y) = case
@@ -31,7 +31,7 @@ fun gib_naive(n) =
 let gn5 = run(gib_naive(5))
 
 fun bind(rhs, k: forall 'g : Code['a, 'g] -> Code['b, 'c | 'g]) =
-  `let x = rhs in k(x)
+  `let x = rhs `in k(x)
 
 fun body: forall 'g : (Code[Int, 'g], Code[Int, 'g]) -> Int -> Code[Int, 'g]
 fun body(x, y) = case
@@ -51,5 +51,5 @@ let g5 = run(gib(5))
   <p>The code is available <a href="https://github.com/hkust-taco/mlscript">on github</a>.</p>
   <br/>
   <p>Note: JavaScript code generation (used to evaluate the result) is not perfect yet and has rough edges.
-    Also, try typing `window.alert "Hello!"` and see what happens!</p>
+    Also, try typing `window.alert of "Hello!"` and see what happens!</p>
 </html>

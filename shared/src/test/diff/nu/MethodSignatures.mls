@@ -45,7 +45,7 @@ module Oops {
 //│ ╔══[ERROR] Type mismatch in definition of method a:
 //│ ║  l.43: 	  fun a = false
 //│ ║        	      ^^^^^^^^^
-//│ ╟── reference of type `false` is not an instance of type `Int`
+//│ ╟── reference of type `false` is not an instance of `Int`
 //│ ║  l.43: 	  fun a = false
 //│ ║        	          ^^^^^
 //│ ╟── but it flows into definition of method a with expected type `Int`
@@ -66,7 +66,7 @@ module Oops {
   fun a = 1
   fun a = 2
 }
-//│ ╔══[ERROR] Refininition of 'a'
+//│ ╔══[ERROR] Redefinition of 'a'
 //│ ║  l.67: 	  fun a = 2
 //│ ╙──      	      ^^^^^
 //│ module Oops {

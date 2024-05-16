@@ -8,6 +8,7 @@ sealed abstract class Token {
   def describe: Str = this match {
     case SPACE => "space"
     case COMMA => "comma"
+    case SEMI => "semicolon"
     case NEWLINE => "newline"
     case INDENT => "indentation"
     case DEINDENT => "deindentation"
@@ -32,11 +33,12 @@ sealed trait Stroken extends Token
 
 case object SPACE extends Token with Stroken
 case object COMMA extends Token with Stroken
+case object SEMI extends Token with Stroken
 case object NEWLINE extends Token with Stroken // TODO rm
 case object INDENT extends Token
 case object DEINDENT extends Token
 case object ERROR extends Token with Stroken
-case object QUOTE extends  Token with Stroken
+case object QUOTE extends Token with Stroken
 final case class LITVAL(value: Lit) extends Token with Stroken
 final case class KEYWORD(name: String) extends Token with Stroken
 final case class IDENT(name: String, symbolic: Bool) extends Token with Stroken
