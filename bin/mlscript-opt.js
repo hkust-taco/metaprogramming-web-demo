@@ -7391,50 +7391,27 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
           if ((x0$3 instanceof $c_Lmlscript_Term)) {
             var x2$3 = $as_Lmlscript_Term(x0$3);
             return $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, x2$3, blkScope, isQuoted$6, freeVars)
-          } else if ((x0$3 instanceof $c_Lmlscript_NuFunDef)) {
-            var x3$1 = $as_Lmlscript_NuFunDef(x0$3);
-            var isLetRec = x3$1.Lmlscript_NuFunDef__f_isLetRec;
-            var nme$1 = x3$1.Lmlscript_NuFunDef__f_nme;
-            var symbol = x3$1.Lmlscript_NuFunDef__f_symbolicNme;
-            var tparams = x3$1.Lmlscript_NuFunDef__f_tparams;
-            var rhs$1 = x3$1.Lmlscript_NuFunDef__f_rhs;
-            if ((rhs$1 instanceof $c_s_util_Left)) {
-              var x2$2$1 = $as_s_util_Left(rhs$1);
-              var t$5 = $as_Lmlscript_Term(x2$2$1.s_util_Left__f_value);
-              $m_Lmlscript_utils_shorthands$();
-              var value$1 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$5, blkScope, isQuoted$6, freeVars);
-              var $$x10 = new $c_s_util_Left(value$1)
-            } else if ((rhs$1 instanceof $c_s_util_Right)) {
-              var x3$2 = $as_s_util_Right(rhs$1);
-              var t$2$1 = $as_Lmlscript_Type(x3$2.s_util_Right__f_value);
-              $m_Lmlscript_utils_shorthands$();
-              var $$x10 = new $c_s_util_Right(t$2$1)
-            } else {
-              var $$x10;
-              throw new $c_s_MatchError(rhs$1)
-            };
-            return new $c_Lmlscript_NuFunDef(isLetRec, nme$1, symbol, tparams, $$x10, x3$1.Lmlscript_NuFunDef__f_declareLoc, x3$1.Lmlscript_NuFunDef__f_virtualLoc, x3$1.Lmlscript_NuFunDef__f_mutLoc, x3$1.Lmlscript_NuFunDef__f_signature, x3$1.Lmlscript_NuFunDef__f_outer, x3$1.Lmlscript_NuFunDef__f_genField, x3$1.Lmlscript_NuFunDef__f_annotations)
           } else {
-            throw new $c_Lmlscript_codegen_CodeGenError((("statement " + x0$3) + " is not supported in quasiquotes"))
+            return $p_Lmlscript_JSBackend__desugarStatementInUnquote__Lmlscript_Statement__Lmlscript_codegen_Scope__Lmlscript_JSBackend$FreeVars__Lmlscript_Statement($thiz, x0$3, blkScope, freeVars)
           }
         }))(blkScope, isQuoted$7, freeVars);
         if ((stmts === $m_sci_Nil$())) {
-          var $$x11 = $m_sci_Nil$()
+          var $$x10 = $m_sci_Nil$()
         } else {
           var arg1$11 = stmts.head__O();
           var h$5 = new $c_sci_$colon$colon(f$6(arg1$11), $m_sci_Nil$());
-          var t$6 = h$5;
+          var t$5 = h$5;
           var rest$5 = $as_sci_List(stmts.tail__O());
           while ((rest$5 !== $m_sci_Nil$())) {
             var arg1$12 = rest$5.head__O();
             var nx$5 = new $c_sci_$colon$colon(f$6(arg1$12), $m_sci_Nil$());
-            t$6.sci_$colon$colon__f_next = nx$5;
-            t$6 = nx$5;
+            t$5.sci_$colon$colon__f_next = nx$5;
+            t$5 = nx$5;
             rest$5 = $as_sci_List(rest$5.tail__O())
           };
-          var $$x11 = h$5
+          var $$x10 = h$5
         };
-        return new $c_Lmlscript_Blk($$x11)
+        return new $c_Lmlscript_Blk($$x10)
       }
     };
     if ((x1 instanceof $c_Lmlscript_Tup)) {
@@ -7445,12 +7422,12 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
         var isQuoted$8 = isQuoted;
         var rest$6 = eles;
         var h$6 = null;
-        var t$7 = null;
+        var t$6 = null;
         while ((rest$6 !== $m_sci_Nil$())) {
           var arg1$13 = rest$6.head__O();
           var x0$4 = $as_T2(arg1$13);
           matchEnd12: {
-            var this$63;
+            var this$61;
             if ((x0$4 !== null)) {
               var o15 = new $c_s_Some(x0$4);
               if ((!o15.isEmpty__Z())) {
@@ -7463,16 +7440,16 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
                     var name$1 = p6$1.Lmlscript_Var__f_name;
                     if ((p4$1 !== null)) {
                       var flags = p4$1.Lmlscript_Fld__f_flags;
-                      var t$8 = p4$1.Lmlscript_Fld__f_value;
+                      var t$7 = p4$1.Lmlscript_Fld__f_value;
                       var rassoc$40 = new $c_Lmlscript_Var(name$1);
+                      var this$54 = $m_s_package$().s_package$__f_Nil;
+                      var rassoc$43 = $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Var", new $c_sci_$colon$colon(rassoc$40, this$54));
+                      var rassoc$41 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$7, scope$4, isQuoted$8, freeVars);
+                      var this$55 = $p_Lmlscript_JSBackend__toVars$1__Lmlscript_FldFlags__sci_List($thiz, flags);
+                      var rassoc$42 = $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Fld", new $c_sci_$colon$colon(rassoc$41, this$55));
                       var this$56 = $m_s_package$().s_package$__f_Nil;
-                      var rassoc$43 = $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Var", new $c_sci_$colon$colon(rassoc$40, this$56));
-                      var rassoc$41 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$8, scope$4, isQuoted$8, freeVars);
-                      var this$57 = $p_Lmlscript_JSBackend__toVars$1__Lmlscript_FldFlags__sci_List($thiz, flags);
-                      var rassoc$42 = $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Fld", new $c_sci_$colon$colon(rassoc$41, this$57));
-                      var this$58 = $m_s_package$().s_package$__f_Nil;
-                      var this$59 = new $c_sci_$colon$colon(rassoc$42, this$58);
-                      var this$63 = new $c_sci_$colon$colon(rassoc$43, this$59);
+                      var this$57 = new $c_sci_$colon$colon(rassoc$42, this$56);
+                      var this$61 = new $c_sci_$colon$colon(rassoc$43, this$57);
                       break matchEnd12
                     }
                   }
@@ -7487,27 +7464,27 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
                 var x$4 = $m_Lmlscript_utils_shorthands$().Lmlscript_utils_shorthands$__f_N;
                 if (((x$4 === p8) && (p9 !== null))) {
                   var flags$2 = p9.Lmlscript_Fld__f_flags;
-                  var t$2$2 = p9.Lmlscript_Fld__f_value;
-                  var rassoc$44 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$2$2, scope$4, isQuoted$8, freeVars);
-                  var this$61 = $p_Lmlscript_JSBackend__toVars$1__Lmlscript_FldFlags__sci_List($thiz, flags$2);
-                  var rassoc$45 = $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Fld", new $c_sci_$colon$colon(rassoc$44, this$61));
-                  var this$62 = $m_s_package$().s_package$__f_Nil;
-                  var this$63 = new $c_sci_$colon$colon(rassoc$45, this$62);
+                  var t$2$1 = p9.Lmlscript_Fld__f_value;
+                  var rassoc$44 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$2$1, scope$4, isQuoted$8, freeVars);
+                  var this$59 = $p_Lmlscript_JSBackend__toVars$1__Lmlscript_FldFlags__sci_List($thiz, flags$2);
+                  var rassoc$45 = $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Fld", new $c_sci_$colon$colon(rassoc$44, this$59));
+                  var this$60 = $m_s_package$().s_package$__f_Nil;
+                  var this$61 = new $c_sci_$colon$colon(rassoc$45, this$60);
                   break matchEnd12
                 }
               }
             };
             throw new $c_s_MatchError(x0$4)
           };
-          var it$1 = new $c_sc_StrictOptimizedLinearSeqOps$$anon$1(this$63);
+          var it$1 = new $c_sc_StrictOptimizedLinearSeqOps$$anon$1(this$61);
           while (it$1.hasNext__Z()) {
             var nx$6 = new $c_sci_$colon$colon(it$1.next__O(), $m_sci_Nil$());
-            if ((t$7 === null)) {
+            if ((t$6 === null)) {
               h$6 = nx$6
             } else {
-              t$7.sci_$colon$colon__f_next = nx$6
+              t$6.sci_$colon$colon__f_next = nx$6
             };
-            t$7 = nx$6
+            t$6 = nx$6
           };
           rest$6 = $as_sci_List(rest$6.tail__O())
         };
@@ -7524,8 +7501,8 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
               var p3$2 = $as_Lmlscript_Fld($as_T2(o8.s_Some__f_value)._2__O());
               if ((p3$2 !== null)) {
                 var flags$1 = p3$2.Lmlscript_Fld__f_flags;
-                var t$9 = p3$2.Lmlscript_Fld__f_value;
-                var y$4 = new $c_Lmlscript_Fld(flags$1, $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$9, scope$5, isQuoted$9, freeVars));
+                var t$8 = p3$2.Lmlscript_Fld__f_value;
+                var y$4 = new $c_Lmlscript_Fld(flags$1, $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t$8, scope$5, isQuoted$9, freeVars));
                 return $ct_T2__O__O__(new $c_T2(), v, y$4)
               }
             }
@@ -7533,22 +7510,22 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
           throw new $c_s_MatchError(x0$5)
         }))(scope$6, isQuoted$10, freeVars);
         if ((eles === $m_sci_Nil$())) {
-          var $$x12 = $m_sci_Nil$()
+          var $$x11 = $m_sci_Nil$()
         } else {
           var arg1$14 = eles.head__O();
           var h$7 = new $c_sci_$colon$colon(f$7(arg1$14), $m_sci_Nil$());
-          var t$10 = h$7;
+          var t$9 = h$7;
           var rest$7 = $as_sci_List(eles.tail__O());
           while ((rest$7 !== $m_sci_Nil$())) {
             var arg1$15 = rest$7.head__O();
             var nx$7 = new $c_sci_$colon$colon(f$7(arg1$15), $m_sci_Nil$());
-            t$10.sci_$colon$colon__f_next = nx$7;
-            t$10 = nx$7;
+            t$9.sci_$colon$colon__f_next = nx$7;
+            t$9 = nx$7;
             rest$7 = $as_sci_List(rest$7.tail__O())
           };
-          var $$x12 = h$7
+          var $$x11 = h$7
         };
-        return new $c_Lmlscript_Tup($$x12)
+        return new $c_Lmlscript_Tup($$x11)
       }
     };
     if ((x1 instanceof $c_Lmlscript_Subs)) {
@@ -7558,9 +7535,9 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
       if (isQuoted) {
         var rassoc$47 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, arr, scope, isQuoted, freeVars);
         var rassoc$46 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, idx, scope, isQuoted, freeVars);
-        var this$67 = $m_s_package$().s_package$__f_Nil;
-        var this$68 = new $c_sci_$colon$colon(rassoc$46, this$67);
-        return $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Subs", new $c_sci_$colon$colon(rassoc$47, this$68))
+        var this$65 = $m_s_package$().s_package$__f_Nil;
+        var this$66 = new $c_sci_$colon$colon(rassoc$46, this$65);
+        return $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "Subs", new $c_sci_$colon$colon(rassoc$47, this$66))
       } else {
         return new $c_Lmlscript_Subs($p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, arr, scope, isQuoted, freeVars), $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, idx, scope, isQuoted, freeVars))
       }
@@ -7585,11 +7562,11 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
         if (isQuoted) {
           var rassoc$49 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, lhs$3, scope, isQuoted, freeVars);
           var rassoc$48 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, rhs$3, scope, isQuoted, freeVars);
-          var this$69 = $m_s_package$().s_package$__f_Nil;
-          var this$70 = new $c_sci_$colon$colon(rassoc$48, this$69);
-          return $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "With", new $c_sci_$colon$colon(rassoc$49, this$70))
+          var this$67 = $m_s_package$().s_package$__f_Nil;
+          var this$68 = new $c_sci_$colon$colon(rassoc$48, this$67);
+          return $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "With", new $c_sci_$colon$colon(rassoc$49, this$68))
         } else {
-          var $$x14 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, lhs$3, scope, isQuoted, freeVars);
+          var $$x13 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, lhs$3, scope, isQuoted, freeVars);
           var scope$8 = scope;
           var isQuoted$12 = isQuoted;
           var f$8 = ((scope$7, isQuoted$11, freeVars) => ((f$5$2) => {
@@ -7597,22 +7574,22 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
             return $ct_T2__O__O__(new $c_T2(), f$5$1._1__O(), new $c_Lmlscript_Fld($as_Lmlscript_Fld(f$5$1._2__O()).Lmlscript_Fld__f_flags, $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, $as_Lmlscript_Fld(f$5$1._2__O()).Lmlscript_Fld__f_value, scope$7, isQuoted$11, freeVars)))
           }))(scope$8, isQuoted$12, freeVars);
           if ((fields$2 === $m_sci_Nil$())) {
-            var $$x13 = $m_sci_Nil$()
+            var $$x12 = $m_sci_Nil$()
           } else {
             var arg1$16 = fields$2.head__O();
             var h$8 = new $c_sci_$colon$colon(f$8(arg1$16), $m_sci_Nil$());
-            var t$11 = h$8;
+            var t$10 = h$8;
             var rest$8 = $as_sci_List(fields$2.tail__O());
             while ((rest$8 !== $m_sci_Nil$())) {
               var arg1$17 = rest$8.head__O();
               var nx$8 = new $c_sci_$colon$colon(f$8(arg1$17), $m_sci_Nil$());
-              t$11.sci_$colon$colon__f_next = nx$8;
-              t$11 = nx$8;
+              t$10.sci_$colon$colon__f_next = nx$8;
+              t$10 = nx$8;
               rest$8 = $as_sci_List(rest$8.tail__O())
             };
-            var $$x13 = h$8
+            var $$x12 = h$8
           };
-          return new $c_Lmlscript_With($$x14, new $c_Lmlscript_Rcd($$x13))
+          return new $c_Lmlscript_With($$x13, new $c_Lmlscript_Rcd($$x12))
         }
       }
     };
@@ -7623,27 +7600,27 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
       var x1$3 = $p_Lmlscript_JSBackend__desugarQuotedBranch__Lmlscript_CaseBranches__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__s_util_Either($thiz, cases, scope, isQuoted, freeVars);
       if ((x1$3 instanceof $c_s_util_Left)) {
         var x2$3$1 = $as_s_util_Left(x1$3);
-        var t$12 = $as_Lmlscript_Term(x2$3$1.s_util_Left__f_value);
+        var t$11 = $as_Lmlscript_Term(x2$3$1.s_util_Left__f_value);
         var rassoc$51 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, trm$3, scope, isQuoted, freeVars);
-        var this$71 = $m_s_package$().s_package$__f_Nil;
-        var this$72 = new $c_sci_$colon$colon(t$12, this$71);
-        return $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "CaseOf", new $c_sci_$colon$colon(rassoc$51, this$72))
+        var this$69 = $m_s_package$().s_package$__f_Nil;
+        var this$70 = new $c_sci_$colon$colon(t$11, this$69);
+        return $p_Lmlscript_JSBackend__createASTCall__T__sci_List__Lmlscript_App($thiz, "CaseOf", new $c_sci_$colon$colon(rassoc$51, this$70))
       } else if ((x1$3 instanceof $c_s_util_Right)) {
-        var x3$2$1 = $as_s_util_Right(x1$3);
-        var b = $as_Lmlscript_CaseBranches(x3$2$1.s_util_Right__f_value);
+        var x3$2 = $as_s_util_Right(x1$3);
+        var b = $as_Lmlscript_CaseBranches(x3$2.s_util_Right__f_value);
         return new $c_Lmlscript_CaseOf($p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, trm$3, scope, isQuoted, freeVars), b)
       } else {
         throw new $c_s_MatchError(x1$3)
       }
     };
-    var this$73 = term.Lmlscript_Term__f_desugaredTerm;
-    if ((!this$73.isEmpty__Z())) {
-      var this$74 = term.Lmlscript_Term__f_desugaredTerm;
-      if (this$74.isEmpty__Z()) {
-        var this$75 = $m_Lmlscript_utils_package$();
-        this$75.lastWords__T__E("Program reached and unexpected state.")
+    var this$71 = term.Lmlscript_Term__f_desugaredTerm;
+    if ((!this$71.isEmpty__Z())) {
+      var this$72 = term.Lmlscript_Term__f_desugaredTerm;
+      if (this$72.isEmpty__Z()) {
+        var this$73 = $m_Lmlscript_utils_package$();
+        this$73.lastWords__T__E("Program reached and unexpected state.")
       };
-      term = $as_Lmlscript_Term(this$74.get__O());
+      term = $as_Lmlscript_Term(this$72.get__O());
       continue
     };
     if ((x1 instanceof $c_Lmlscript_Assign)) {
@@ -7714,6 +7691,129 @@ function $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen
     };
     throw new $c_s_MatchError(x1)
   }
+}
+function $p_Lmlscript_JSBackend__desugarStatementInUnquote__Lmlscript_Statement__Lmlscript_codegen_Scope__Lmlscript_JSBackend$FreeVars__Lmlscript_Statement($thiz, s, scope, freeVars) {
+  if ((s instanceof $c_Lmlscript_NuFunDef)) {
+    var x2 = $as_Lmlscript_NuFunDef(s);
+    var isLetRec = x2.Lmlscript_NuFunDef__f_isLetRec;
+    var nme = x2.Lmlscript_NuFunDef__f_nme;
+    var symbol = x2.Lmlscript_NuFunDef__f_symbolicNme;
+    var tparams = x2.Lmlscript_NuFunDef__f_tparams;
+    var rhs = x2.Lmlscript_NuFunDef__f_rhs;
+    if ((rhs instanceof $c_s_util_Left)) {
+      var x2$2 = $as_s_util_Left(rhs);
+      var t = $as_Lmlscript_Term(x2$2.s_util_Left__f_value);
+      $m_Lmlscript_utils_shorthands$();
+      var value = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, t, scope, false, freeVars);
+      var $$x1 = new $c_s_util_Left(value)
+    } else if ((rhs instanceof $c_s_util_Right)) {
+      var x3 = $as_s_util_Right(rhs);
+      var t$2 = $as_Lmlscript_Type(x3.s_util_Right__f_value);
+      $m_Lmlscript_utils_shorthands$();
+      var $$x1 = new $c_s_util_Right(t$2)
+    } else {
+      var $$x1;
+      throw new $c_s_MatchError(rhs)
+    };
+    return new $c_Lmlscript_NuFunDef(isLetRec, nme, symbol, tparams, $$x1, x2.Lmlscript_NuFunDef__f_declareLoc, x2.Lmlscript_NuFunDef__f_virtualLoc, x2.Lmlscript_NuFunDef__f_mutLoc, x2.Lmlscript_NuFunDef__f_signature, x2.Lmlscript_NuFunDef__f_outer, x2.Lmlscript_NuFunDef__f_genField, x2.Lmlscript_NuFunDef__f_annotations)
+  };
+  if ((s instanceof $c_Lmlscript_NuTypeDef)) {
+    var x3$2 = $as_Lmlscript_NuTypeDef(s);
+    var kind = x3$2.Lmlscript_NuTypeDef__f_kind;
+    var nme$2 = x3$2.Lmlscript_NuTypeDef__f_nme;
+    var tparams$2 = x3$2.Lmlscript_NuTypeDef__f_tparams;
+    var params = x3$2.Lmlscript_NuTypeDef__f_params;
+    var ctor = x3$2.Lmlscript_NuTypeDef__f_ctor;
+    var sig = x3$2.Lmlscript_NuTypeDef__f_sig;
+    var parents = x3$2.Lmlscript_NuTypeDef__f_parents;
+    var superAnnot = x3$2.Lmlscript_NuTypeDef__f_superAnnot;
+    var thisAnnot = x3$2.Lmlscript_NuTypeDef__f_thisAnnot;
+    var p4 = x3$2.Lmlscript_NuTypeDef__f_body;
+    if ((p4 !== null)) {
+      var body = p4.Lmlscript_TypingUnit__f_rawEntities;
+      if (ctor.isEmpty__Z()) {
+        var $$x4 = $m_s_None$()
+      } else {
+        var arg1 = ctor.get__O();
+        var c = $as_Lmlscript_Constructor(arg1);
+        var x1 = $p_Lmlscript_JSBackend__desugarStatementInUnquote__Lmlscript_Statement__Lmlscript_codegen_Scope__Lmlscript_JSBackend$FreeVars__Lmlscript_Statement($thiz, c, scope, freeVars);
+        if ((x1 instanceof $c_Lmlscript_Constructor)) {
+          var x2$1 = $as_Lmlscript_Constructor(x1);
+          var $$x5 = x2$1
+        } else {
+          var $$x5;
+          var this$3 = $m_Lmlscript_utils_package$();
+          this$3.lastWords__T__E("Program reached and unexpected state.")
+        };
+        var $$x4 = new $c_s_Some($$x5)
+      };
+      var f = ((p$2) => {
+        var p = $as_Lmlscript_Term(p$2);
+        return $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, p, scope, false, freeVars)
+      });
+      if ((parents === $m_sci_Nil$())) {
+        var $$x3 = $m_sci_Nil$()
+      } else {
+        var arg1$1 = parents.head__O();
+        var h = new $c_sci_$colon$colon(f(arg1$1), $m_sci_Nil$());
+        var t$1 = h;
+        var rest = $as_sci_List(parents.tail__O());
+        while ((rest !== $m_sci_Nil$())) {
+          var arg1$2 = rest.head__O();
+          var nx = new $c_sci_$colon$colon(f(arg1$2), $m_sci_Nil$());
+          t$1.sci_$colon$colon__f_next = nx;
+          t$1 = nx;
+          rest = $as_sci_List(rest.tail__O())
+        };
+        var $$x3 = h
+      };
+      var f$1 = ((s$2$2) => {
+        var s$2 = $as_Lmlscript_Statement(s$2$2);
+        return $p_Lmlscript_JSBackend__desugarStatementInUnquote__Lmlscript_Statement__Lmlscript_codegen_Scope__Lmlscript_JSBackend$FreeVars__Lmlscript_Statement($thiz, s$2, scope, freeVars)
+      });
+      if ((body === $m_sci_Nil$())) {
+        var $$x2 = $m_sci_Nil$()
+      } else {
+        var arg1$3 = body.head__O();
+        var h$1 = new $c_sci_$colon$colon(f$1(arg1$3), $m_sci_Nil$());
+        var t$3 = h$1;
+        var rest$1 = $as_sci_List(body.tail__O());
+        while ((rest$1 !== $m_sci_Nil$())) {
+          var arg1$4 = rest$1.head__O();
+          var nx$1 = new $c_sci_$colon$colon(f$1(arg1$4), $m_sci_Nil$());
+          t$3.sci_$colon$colon__f_next = nx$1;
+          t$3 = nx$1;
+          rest$1 = $as_sci_List(rest$1.tail__O())
+        };
+        var $$x2 = h$1
+      };
+      return new $c_Lmlscript_NuTypeDef(kind, nme$2, tparams$2, params, $$x4, sig, $$x3, superAnnot, thisAnnot, new $c_Lmlscript_TypingUnit($$x2), x3$2.Lmlscript_NuTypeDef__f_declareLoc, x3$2.Lmlscript_NuTypeDef__f_abstractLoc, x3$2.Lmlscript_NuTypeDef__f_annotations)
+    }
+  };
+  if ((s instanceof $c_Lmlscript_Constructor)) {
+    var x5 = $as_Lmlscript_Constructor(s);
+    var ps = x5.Lmlscript_Constructor__f_params;
+    var body$2 = x5.Lmlscript_Constructor__f_body;
+    var x1$3 = $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, body$2, scope, false, freeVars);
+    if ((x1$3 instanceof $c_Lmlscript_Blk)) {
+      var x2$3 = $as_Lmlscript_Blk(x1$3);
+      var $$x6 = x2$3
+    } else {
+      var $$x6;
+      var this$4 = $m_Lmlscript_utils_package$();
+      this$4.lastWords__T__E("Program reached and unexpected state.")
+    };
+    return new $c_Lmlscript_Constructor(ps, $$x6)
+  };
+  if ((s instanceof $c_Lmlscript_Term)) {
+    var x6 = $as_Lmlscript_Term(s);
+    return $p_Lmlscript_JSBackend__desugarQuote__Lmlscript_Term__Lmlscript_codegen_Scope__Z__Lmlscript_JSBackend$FreeVars__Lmlscript_Term($thiz, x6, scope, false, freeVars)
+  };
+  if ((false || (false || (false || ((s instanceof $c_Lmlscript_TypeDef) || (s instanceof $c_Lmlscript_Def)))))) {
+    var this$5 = $m_Lmlscript_utils_package$();
+    this$5.lastWords__T__E("Program reached and unexpected state.")
+  };
+  throw new $c_s_MatchError(s)
 }
 function $p_Lmlscript_JSBackend__translateCaseBranch__Lmlscript_JSExpr__Lmlscript_CaseBranches__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, scrut, branch, scope) {
   if ((branch instanceof $c_Lmlscript_Case)) {
@@ -8116,11 +8216,11 @@ function $p_Lmlscript_JSBackend__resolveName$1__Lmlscript_Term__T($thiz, term) {
     throw new $c_Lmlscript_codegen_CodeGenError("unsupported parents.")
   }
 }
-function $p_Lmlscript_JSBackend__translateParent$1__Lmlscript_Term__Lmlscript_JSExpr__Z__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, current, base, mixinOnly, scope$11) {
+function $p_Lmlscript_JSBackend__translateParent$1__Lmlscript_Term__Lmlscript_JSExpr__Z__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, current, base, mixinOnly, scope$12) {
   var name = $p_Lmlscript_JSBackend__resolveName$1__Lmlscript_Term__T($thiz, current);
   var rc12 = false;
   var x2 = null;
-  var x1 = scope$11.resolveValue__T__s_Option(name);
+  var x1 = scope$12.resolveValue__T__s_Option(name);
   if ((x1 instanceof $c_s_Some)) {
     rc12 = true;
     x2 = $as_s_Some(x1);
@@ -8132,7 +8232,7 @@ function $p_Lmlscript_JSBackend__translateParent$1__Lmlscript_Term__Lmlscript_JS
     var sym = $as_Lmlscript_codegen_RuntimeSymbol(x2.s_Some__f_value);
     if ((sym instanceof $c_Lmlscript_codegen_MixinSymbol)) {
       var x6 = $as_Lmlscript_codegen_MixinSymbol(sym);
-      var $$x1 = $p_Lmlscript_JSBackend__translateNuTypeSymbol__Lmlscript_codegen_NuTypeSymbol__Z__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, x6, true, scope$11);
+      var $$x1 = $p_Lmlscript_JSBackend__translateNuTypeSymbol__Lmlscript_codegen_NuTypeSymbol__Z__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, x6, true, scope$12);
       $m_Lmlscript_utils_shorthands$();
       var array = [base];
       var elems = $ct_sjsr_WrappedVarArgs__sjs_js_Array__(new $c_sjsr_WrappedVarArgs(), array);
@@ -8143,7 +8243,7 @@ function $p_Lmlscript_JSBackend__translateParent$1__Lmlscript_Term__Lmlscript_JS
     var sym$2 = $as_Lmlscript_codegen_RuntimeSymbol(x2.s_Some__f_value);
     if ($is_Lmlscript_codegen_NuTypeSymbol(sym$2)) {
       if ((!mixinOnly)) {
-        return $p_Lmlscript_JSBackend__translateNuTypeSymbol__Lmlscript_codegen_NuTypeSymbol__Z__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, $as_Lmlscript_codegen_NuTypeSymbol(sym$2), true, scope$11)
+        return $p_Lmlscript_JSBackend__translateNuTypeSymbol__Lmlscript_codegen_NuTypeSymbol__Z__Lmlscript_codegen_Scope__Lmlscript_JSExpr($thiz, $as_Lmlscript_codegen_NuTypeSymbol(sym$2), true, scope$12)
       }
     }
   };
