@@ -1454,7 +1454,7 @@ class JSWebBackend extends JSBackend {
             val translatedBody = if (sym.isByvalueRec.isEmpty && !sym.isLam) JSArrowFn(Nil, L(originalExpr)) else originalExpr
             resultNames += sym.runtimeName
             topLevelScope.tempVars `with` JSConstDecl(sym.runtimeName, translatedBody) ::
-              JSInvoke(resultsIdent("push"), JSIdent(sym.runtimeName) :: Nil).stmt :: Nil
+              JSInvoke(resultsIdent("push"), JSInvoke(JSIdent("try2String"), JSIdent(sym.runtimeName) :: Nil) :: Nil).stmt :: Nil
           case fd @ NuFunDef(isLetRec, Var(name), _, tys, R(ty)) =>
             Nil
           case _: Def | _: TypeDef | _: Constructor =>
@@ -1464,13 +1464,10 @@ class JSWebBackend extends JSBackend {
             resultNames += term.show(true)
             topLevelScope.tempVars `with` JSInvoke(
               resultsIdent("push"),
-              res :: Nil
+              JSInvoke(JSIdent("try2String"), res :: Nil) :: Nil
             ).stmt :: Nil
         })
-    val qqPredefs =
-      SourceCode(QQHelper.prettyPrinter.replace(
-        """globalThis.run = (code) => {console.log("Quoted:\n" + code);}""",
-        """globalThis.run = (code) => code"""))
+    val qqPredefs = SourceCode(QQHelper.runtime)
     val epilogue = resultsIdent.member("map")(JSIdent(prettyPrinterName)).`return` :: Nil
     ((qqPredefs ++ JSImmEvalFn(N, Nil, R(polyfill.emit() ::: stmts ::: epilogue), Nil).toSourceCode).toLines, resultNames.toList)
   }

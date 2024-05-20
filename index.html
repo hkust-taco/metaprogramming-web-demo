@@ -15,7 +15,7 @@ fun power(x) = case
 
 fun assertNotZero(x) =
   `if (x `== `0.0) then `error else x
-fun checkedDiv = x `=> y `=> x `/ assertNotZero(y)
+let checkedDiv = x `=> y `=> x `/ assertNotZero(y)
 
 fun show: Code[anything, anything] -> Str = _ => "debug"
 fun inc(dbg) =
