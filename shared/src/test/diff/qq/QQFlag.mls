@@ -16,7 +16,7 @@ run(code"x => x")
 //│ class TypingUnit1 {}
 //│ const typing_unit1 = new TypingUnit1;
 //│ // Query 1
-//│ res = run(((x1) => Lam(Var(x1), Var(x1)))(freshName("x")));
+//│ res = run(((x1) => Lam(Tup(Fld(Var(x1))), Var(x1)))(freshName("x")));
 //│ // End of generated code
 //│ res
 //│     = Quoted:

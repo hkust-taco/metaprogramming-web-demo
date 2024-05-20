@@ -64,9 +64,8 @@ let gn5 = run(gib_naive(5))
 //│ let gn5: (Int, Int) -> Int
 //│ gn5
 //│     = Quoted:
-//│       (x_4) =>
-//│         (y_1) =>
-//│           ((y_1 + (x_4 + y_1)) + ((x_4 + y_1) + (y_1 + (x_4 + y_1))))
+//│       (x_4, y_1) =>
+//│         ((y_1 + (x_4 + y_1)) + ((x_4 + y_1) + (y_1 + (x_4 + y_1))))
 //│       undefined
 
 fun bind(rhs, k) = `let x = rhs `in k(x)
@@ -94,15 +93,14 @@ let g5 = run(gib(5))
 //│ fun body: forall 'g. (Code[Int, 'g], Code[Int, 'g]) -> Int -> Code[Int, 'g]
 //│ g5
 //│    = Quoted:
-//│      (x_5) =>
-//│        (y_2) =>
-//│          let x_6 =
-//│            (x_5 + y_2)
-//│            in let x_7 =
-//│              (y_2 + x_6)
-//│              in let x_8 =
-//│                (x_6 + x_7)
-//│                in let x_9 =
-//│                  (x_7 + x_8)
-//│                  in x_9
+//│      (x_5, y_2) =>
+//│        let x_6 =
+//│          (x_5 + y_2)
+//│          in let x_7 =
+//│            (y_2 + x_6)
+//│            in let x_8 =
+//│              (x_6 + x_7)
+//│              in let x_9 =
+//│                (x_7 + x_8)
+//│                in x_9
 //│      undefined

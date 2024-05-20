@@ -28,7 +28,7 @@ object QQHelper {
   | globalThis.DecLit = (v) => `${v}`;
   | globalThis.StrLit = (v) => `${v}`;
   | globalThis.UnitLit = (v) => `${v}`;
-  | globalThis.Lam = (x, e) => `(${x}) =>\n${indent(e)}`;
+  | globalThis.Lam = (x, e) => `${x} =>\n${indent(e)}`;
   | globalThis.Var = (x) => `${x}`;
   | globalThis.App = (f, ...xs) => {
   | if (f === '+' || f === '-' || f === '*' || f === '/' || f === '==' || f === '<' || f === '>' || f === 'and' || f === 'or' || f === 'is')

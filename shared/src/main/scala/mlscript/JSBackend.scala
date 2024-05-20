@@ -250,8 +250,11 @@ abstract class JSBackend {
                 nme -> lamScope.declareValue(nme, S(false), false, N).runtimeName
               case p => throw CodeGenError(s"parameter $p is not supported in quasiquote")
             }
-            newfreeVars.foldRight(desugarQuote(body)(lamScope, isQuoted, new FreeVars(freeVars.vs ++ newfreeVars.map(_._1))))((p, res) =>
-              Let(false, Var(p._2), createASTCall("freshName", StrLit(p._1) :: Nil), createASTCall("Lam", createASTCall("Var", Var(p._2) :: Nil) :: res :: Nil)))
+            val tup = createASTCall("Tup", newfreeVars.map {
+              case (_, nme) => createASTCall("Fld", createASTCall("Var", Var(nme) :: Nil) :: Nil)
+            })
+            val lam = createASTCall("Lam", tup :: desugarQuote(body)(lamScope, isQuoted, new FreeVars(freeVars.vs ++ newfreeVars.map(_._1))) :: Nil)
+            newfreeVars.foldRight[Term](lam)((p, res) => Let(false, Var(p._2), createASTCall("freshName", StrLit(p._1) :: Nil), res))
           case _  => throw CodeGenError(s"term $params is not a valid parameter list")
         }
       }

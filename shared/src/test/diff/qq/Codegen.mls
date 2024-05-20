@@ -21,7 +21,7 @@ code"x => x"
 //│ class TypingUnit1 {}
 //│ const typing_unit1 = new TypingUnit1;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), Var(x1)))(freshName("x"));
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), Var(x1)))(freshName("x"));
 //│ // End of generated code
 
 
@@ -33,7 +33,7 @@ code"x => ${code"x"}"
 //│ class TypingUnit2 {}
 //│ const typing_unit2 = new TypingUnit2;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), Var(x1)))(freshName("x"));
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), Var(x1)))(freshName("x"));
 //│ // End of generated code
 
 
@@ -48,7 +48,7 @@ code"x => ${id(code"x")}"
 //│ class TypingUnit3 {}
 //│ const typing_unit3 = new TypingUnit3;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), id(Var(x1))))(freshName("x"));
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), id(Var(x1))))(freshName("x"));
 //│ // End of generated code
 
 
@@ -72,7 +72,7 @@ code"f => f(114)"
 //│ class TypingUnit5 {}
 //│ const typing_unit5 = new TypingUnit5;
 //│ // Query 1
-//│ res = ((f1) => Lam(Var(f1), App(Var(f1), Tup(Fld(IntLit(114), false, false, false)))))(freshName("f"));
+//│ res = ((f1) => Lam(Tup(Fld(Var(f1))), App(Var(f1), Tup(Fld(IntLit(114), false, false, false)))))(freshName("f"));
 //│ // End of generated code
 
 
@@ -132,7 +132,7 @@ code"(x => x + 1)(41)"
 //│ class TypingUnit10 {}
 //│ const typing_unit10 = new TypingUnit10;
 //│ // Query 1
-//│ res = App(Bra(((x1) => Lam(Var(x1), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"))), Tup(Fld(IntLit(41), false, false, false)));
+//│ res = App(Bra(((x1) => Lam(Tup(Fld(Var(x1))), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"))), Tup(Fld(IntLit(41), false, false, false)));
 //│ // End of generated code
 
 
@@ -215,7 +215,7 @@ code"(x: Int) => x + 1"
 //│ class TypingUnit17 {}
 //│ const typing_unit17 = new TypingUnit17;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"));
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), App(Var("+"), Var(x1), IntLit(1))))(freshName("x"));
 //│ // End of generated code
 
 
@@ -315,7 +315,7 @@ code"p => if p.x ===
 //│ // Query 2
 //│ globalThis.one = Const(1);
 //│ // Query 3
-//│ res = ((p1) => Lam(Var(p1), CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), zero), Case(Var("true"), Var("true"), Wildcard(CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), one), Case(Var("true"), Var("false"), Wildcard(Var("false")))))))))(freshName("p"));
+//│ res = ((p1) => Lam(Tup(Fld(Var(p1))), CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), zero), Case(Var("true"), Var("true"), Wildcard(CaseOf(App(Var("==="), Sel(Var(p1), Var("x")), one), Case(Var("true"), Var("false"), Wildcard(Var("false")))))))))(freshName("p"));
 //│ // End of generated code
 
 
@@ -330,7 +330,7 @@ fun test(cde, f) =
 //│ // Query 1
 //│ globalThis.test = function test(cde, f) {
 //│   return ((() => {
-//│     return ((x1) => Lam(Var(x1), App(Var("+"), Var(x1), f(cde))))(freshName("x"));
+//│     return ((x1) => Lam(Tup(Fld(Var(x1))), App(Var("+"), Var(x1), f(cde))))(freshName("x"));
 //│   })());
 //│ };
 //│ // End of generated code
@@ -377,9 +377,9 @@ x `=>
 //│ class TypingUnit30 {}
 //│ const typing_unit30 = new TypingUnit30;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), (() => {
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), (() => {
 //│   let v = Ref(Var(x1));
-//│   let _ = ((y1) => Lam(Var(y1), (() => {
+//│   let _ = ((y1) => Lam(Tup(Fld(Var(y1))), (() => {
 //│     void(v.value = Var(y1));
 //│     return IntLit(0);
 //│   })()))(freshName("y"));
@@ -399,7 +399,7 @@ x `=>
 //│ class TypingUnit31 {}
 //│ const typing_unit31 = new TypingUnit31;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), (() => {
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), (() => {
 //│   const A = (() => {
 //│     class A {
 //│       #y;
@@ -438,7 +438,7 @@ x `=>
 //│ class TypingUnit32 {}
 //│ const typing_unit32 = new TypingUnit32;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), (() => {
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), (() => {
 //│   const A = (() => {
 //│     class A {
 //│       constructor() {
@@ -471,7 +471,7 @@ x `=>
 //│ class TypingUnit34 {}
 //│ const typing_unit34 = new TypingUnit34;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), (() => {
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), (() => {
 //│   const B = (() => {
 //│     class B extends Foo.class {
 //│       constructor() {
@@ -489,4 +489,27 @@ x `=>
 //│   })();
 //│   return Var(x1);
 //│ })()))(freshName("x"));
+//│ // End of generated code
+
+
+:js
+:ne
+(x, y) `=> x `+ y
+//│ Code[(Int, Int) -> Int, nothing]
+//│ // Prelude
+//│ class TypingUnit35 {}
+//│ const typing_unit35 = new TypingUnit35;
+//│ // Query 1
+//│ res = ((x1) => ((y1) => Lam(Tup(Fld(Var(x1)), Fld(Var(y1))), App(Var("+"), Var(x1), Var(y1))))(freshName("y")))(freshName("x"));
+//│ // End of generated code
+
+:js
+:ne
+x `=> y `=> x `+ y
+//│ Code[Int -> Int -> Int, nothing]
+//│ // Prelude
+//│ class TypingUnit36 {}
+//│ const typing_unit36 = new TypingUnit36;
+//│ // Query 1
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), ((y1) => Lam(Tup(Fld(Var(y1))), App(Var("+"), Var(x1), Var(y1))))(freshName("y"))))(freshName("x"));
 //│ // End of generated code

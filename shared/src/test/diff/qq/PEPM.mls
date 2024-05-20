@@ -80,7 +80,7 @@ let power10 = run(code"x => ${power'(code"x", 10)}")
 //│ class TypingUnit8 {}
 //│ const typing_unit8 = new TypingUnit8;
 //│ // Query 1
-//│ globalThis.power10 = run(((x1) => Lam(Var(x1), power$(Var(x1), 10)))(freshName("x")));
+//│ globalThis.power10 = run(((x1) => Lam(Tup(Fld(Var(x1))), power$(Var(x1), 10)))(freshName("x")));
 //│ // End of generated code
 
 
@@ -92,7 +92,7 @@ code"x => x"
 //│ class TypingUnit9 {}
 //│ const typing_unit9 = new TypingUnit9;
 //│ // Query 1
-//│ res = ((x1) => Lam(Var(x1), Var(x1)))(freshName("x"));
+//│ res = ((x1) => Lam(Tup(Fld(Var(x1))), Var(x1)))(freshName("x"));
 //│ // End of generated code
 
 
