@@ -194,13 +194,13 @@ abstract class JSBackend {
   private def desugarQuotedBranch(branch: CaseBranches)(
     implicit scope: Scope, isQuoted: Bool, freeVars: FreeVars
   ): Either[Term, CaseBranches] = branch match {
-    case Case(pat, body, rest) =>
+    case cse @ Case(pat, body, rest) =>
       val dp = desugarQuote(pat)
       val db = desugarQuote(body)
       desugarQuotedBranch(rest) match {
         case L(t) => L(createASTCall("Case", dp :: db :: t :: Nil))
         case R(b) => dp match {
-          case dp: SimpleTerm => R(Case(dp, db, b))
+          case dp: SimpleTerm => R(Case(dp, db, b)(cse.refined))
           case _ => die
         }
       }
@@ -556,6 +556,14 @@ abstract class JSBackend {
       pat match {
         case Var("int") =>
           JSInvoke(JSField(JSIdent("Number"), "isInteger"), scrut :: Nil)
+        case Var("Int") if !oldDefs =>
+          JSInvoke(JSField(JSIdent("Number"), "isInteger"), scrut :: Nil)
+        case Var("Num") if !oldDefs =>
+          JSBinary("===", scrut.typeof(), JSLit(JSLit.makeStringLiteral("number")))
+        case Var("Bool") if !oldDefs =>
+          JSBinary("===", scrut.typeof(), JSLit(JSLit.makeStringLiteral("boolean")))
+        case Var("Str") if !oldDefs =>
+          JSBinary("===", scrut.typeof(), JSLit(JSLit.makeStringLiteral("string")))
         case Var("bool") =>
           JSBinary("===", scrut.member("constructor"), JSLit("Boolean"))
         case Var(s @ ("true" | "false")) =>
@@ -575,8 +583,7 @@ abstract class JSBackend {
             case _ => throw new CodeGenError(s"unknown match case: $name")
           }
         }
-        case lit: Lit =>
-          JSBinary("===", scrut, translateTerm(lit))
+        case lit: Lit => JSBinary("===", scrut, translateTerm(lit))
       },
       _,
       _
@@ -1345,7 +1352,7 @@ abstract class JSBackend {
 }
 
 class JSWebBackend extends JSBackend {
-  def oldDefs = false
+  override def oldDefs: Bool = false
   
   // Name of the array that contains execution results
   val resultsName: Str = topLevelScope declareRuntimeSymbol "results"
@@ -1472,8 +1479,8 @@ class JSWebBackend extends JSBackend {
     ((qqPredefs ++ JSImmEvalFn(N, Nil, R(polyfill.emit() ::: stmts ::: epilogue), Nil).toSourceCode).toLines, resultNames.toList)
   }
 
-  def apply(pgrm: Pgrm, newDefs: Bool): (Ls[Str], Ls[Str]) =
-    if (newDefs) generateNewDef(pgrm) else generate(pgrm)
+  def apply(pgrm: Pgrm): (Ls[Str], Ls[Str]) =
+    if (!oldDefs) generateNewDef(pgrm) else generate(pgrm)
 }
 
 abstract class JSTestBackend extends JSBackend {
